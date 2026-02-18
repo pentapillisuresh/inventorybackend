@@ -1,0 +1,4 @@
+node_modules/
+src/uploads/documents/*
+src/uploads/images/*
+src/uploads/temp/*
