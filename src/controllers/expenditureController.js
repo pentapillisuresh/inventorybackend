@@ -149,6 +149,34 @@ exports.getExpenditureById = async (req, res) => {
   }
 };
 
+exports.getIncomesById = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+
+    const totalIncome = await Expenditure.sum('amount', {
+      where: {
+        adminId,
+        ledgerType: 'credit', // Important: only income
+        category: {
+          [Op.in]: ["subscription", "renew"]
+        }
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      totalIncome: totalIncome || 0
+    });
+
+  } catch (error) {
+    console.error("Income Error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
 // Update expenditure
 exports.updateExpenditure = async (req, res) => {
   try {

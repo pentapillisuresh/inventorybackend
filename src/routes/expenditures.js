@@ -34,6 +34,11 @@ router.get('/:id',
   expenditureController.getExpenditureById
 );
 
+router.get('/incomes/:adminId',
+  authenticate,
+  expenditureController.getIncomesById
+);
+
 // Update expenditure (Admin only)
 router.put('/:id',
   authenticate,
