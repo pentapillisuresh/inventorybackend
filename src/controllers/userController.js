@@ -199,22 +199,33 @@ exports.updateAdminAccount = async (req, res) => {
       name,
       email,
       phoneNumber,
+      businessType,
+      planType,
       maxStores,
       maxOutlet,
-      expiryDate,
-      isActive,
+      BusinessImage,
+      BusinessLogo,
       permissions,
       password
     } = req.body;
 
-    // ===== Update allowed basic fields =====
+// ===============================
+    // Basic Fields Update
+    // ===============================
+
     if (name !== undefined) admin.name = name;
     if (email !== undefined) admin.email = email;
     if (phoneNumber !== undefined) admin.phoneNumber = phoneNumber;
+
+    if (businessType !== undefined) admin.businessType = businessType;
+    if (planType !== undefined) admin.planType = planType;
+
     if (maxStores !== undefined) admin.maxStores = maxStores;
     if (maxOutlet !== undefined) admin.maxOutlet = maxOutlet;
-    if (expiryDate !== undefined) admin.expiryDate = expiryDate;
-    if (isActive !== undefined) admin.isActive = isActive;
+
+    if (BusinessImage !== undefined) admin.BusinessImage = BusinessImage;
+    if (BusinessLogo !== undefined) admin.BusinessLogo = BusinessLogo;
+
 
     // ===== Update password (auto hashed by hook) =====
     if (password) {
@@ -230,14 +241,21 @@ exports.updateAdminAccount = async (req, res) => {
     }
 
     await admin.save();
+// Remove password from response
+const updatedAdmin = admin.toJSON();
+delete updatedAdmin.password;
 
     res.status(200).json({
       message: "Admin updated successfully",
-      admin
+      admin:updatedAdmin
     });
 
   } catch (error) {
     console.error("Update Admin Error:", error);
+    // Handle duplicate email properly
+    if (error.name === "SequelizeUniqueConstraintError") {
+      return res.status(400).json({ error: "Email already in use" });
+    }
     res.status(500).json({ error: error.message });
   }
 };
@@ -332,22 +350,34 @@ exports.updateStoreManager = async (req, res) => {
       name,
       email,
       phoneNumber,
+      businessType,
+      planType,
       maxStores,
       maxOutlet,
-      expiryDate,
-      isActive,
+      BusinessImage,
+      BusinessLogo,
       permissions,
       password
     } = req.body;
 
-    // ===== Update allowed basic fields =====
+// ===============================
+    // Basic Fields Update
+    // ===============================
+
     if (name !== undefined) storeManager.name = name;
     if (email !== undefined) storeManager.email = email;
     if (phoneNumber !== undefined) storeManager.phoneNumber = phoneNumber;
+
+    if (businessType !== undefined) storeManager.businessType = businessType;
+    if (planType !== undefined) storeManager.planType = planType;
+
     if (maxStores !== undefined) storeManager.maxStores = maxStores;
     if (maxOutlet !== undefined) storeManager.maxOutlet = maxOutlet;
-    if (expiryDate !== undefined) storeManager.expiryDate = expiryDate;
-    if (isActive !== undefined) storeManager.isActive = isActive;
+
+    if (BusinessImage !== undefined) storeManager.BusinessImage = BusinessImage;
+    if (BusinessLogo !== undefined) storeManager.BusinessLogo = BusinessLogo;
+
+
 
     // ===== Update password (auto hashed by hook) =====
     if (password) {
