@@ -84,11 +84,9 @@ exports.createOutlet = async (req, res) => {
 };
 
 // Get all outlets
-
 exports.getAllOutlets = async (req, res) => {
   try {
-    const { storeId, type, active, search, page = 1, limit = 20 } = req.query;
-    const offset = (page - 1) * limit;
+    const { storeId, type, active, search } = req.query;
 
     const where = {};
 
@@ -123,8 +121,6 @@ exports.getAllOutlets = async (req, res) => {
           totalOutlets: 0,
           totalCreditLimit: 0,
           totalCurrentCredit: 0,
-          totalPages: 0,
-          currentPage: Number(page),
           outlets: []
         });
       }
@@ -133,24 +129,7 @@ exports.getAllOutlets = async (req, res) => {
     }
 
     if (req.user.role === 'store_manager') {
-      const store = await Store.findOne({
-        where: { managerId: req.user.id },
-        attributes: ['id'],
-        raw: true
-      });
-
-      if (!store) {
-        return res.json({
-          totalOutlets: 0,
-          totalCreditLimit: 0,
-          totalCurrentCredit: 0,
-          totalPages: 0,
-          currentPage: Number(page),
-          outlets: []
-        });
-      }
-
-      where.storeId = store.id;
+      where.managerId = req.user.id;
     }
 
     // --------------------
@@ -165,8 +144,6 @@ exports.getAllOutlets = async (req, res) => {
         }
       ],
       order: [['name', 'ASC']],
-      limit: Number(limit),
-      offset: Number(offset)
     });
 
     // --------------------
@@ -185,8 +162,6 @@ exports.getAllOutlets = async (req, res) => {
       totalOutlets: count,
       totalCreditLimit: Number(totals.totalCreditLimit || 0),
       totalCurrentCredit: Number(totals.totalCurrentCredit || 0),
-      totalPages: Math.ceil(count / limit),
-      currentPage: Number(page),
       outlets
     });
 

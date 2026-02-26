@@ -48,6 +48,14 @@ const Outlet = sequelize.define('Outlet', {
     type: DataTypes.DECIMAL(15, 2),
     defaultValue: 0
   },
+  createdBy: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    allowNull: true
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true

@@ -30,6 +30,14 @@ const Room = sequelize.define('Room', {
   currentOccupancy: {
     type: DataTypes.INTEGER,
     defaultValue: 0
+  },
+  createdBy: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    allowNull: true
   }
 });
 

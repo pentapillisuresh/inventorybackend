@@ -21,6 +21,14 @@ const Category = sequelize.define('Category', {
       key: 'id' 
     },
     allowNull: false
+  },  
+  createdBy: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    allowNull: true
   }
 });
 

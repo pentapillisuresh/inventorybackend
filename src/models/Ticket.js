@@ -55,6 +55,14 @@ const Ticket = sequelize.define('Ticket', {
       key: 'id'
     }
   },
+  createdBy: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    allowNull: true
+  },
   resolvedAt: {
     type: DataTypes.DATE
   }

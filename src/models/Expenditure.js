@@ -41,6 +41,14 @@ const Expenditure = sequelize.define('Expenditure', {
   verified: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
+  },
+  createdBy: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    allowNull: true
   }
 });
 
