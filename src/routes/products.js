@@ -48,6 +48,11 @@ router.get('/',
   productController.getAllProducts
 );
 
+router.get('/manager/product',
+  authenticate,
+  productController.getProductsUnified
+);
+
 router.get('/:id',
   authenticate,
   

@@ -4,42 +4,68 @@ const { Op, fn, col } = require('sequelize');
 // Create outlet
 exports.createOutlet = async (req, res) => {
   try {
-    const { name, storeId, address, contactPerson, phoneNumber,creditLimit } = req.body;
+    const {
+      name,
+      storeId,
+      managerId: bodyManagerId,
+      address,
+      contactPerson,
+      phoneNumber,
+      creditLimit
+    } = req.body;
 
-    // Check if user has access to the store
-    const store = await Store.findByPk(storeId);
-    
-    if (!store) {
-      return res.status(404).json({ error: 'Store not found' });
+    let finalManagerId = null;
+    let store = null;
+
+    // ✅ If storeId is provided
+    if (storeId) {
+      store = await Store.findByPk(storeId);
+
+      if (!store) {
+        return res.status(404).json({ error: 'Store not found' });
+      }
+
+      // Access control
+      if (req.user.role === 'admin' && store.adminId !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied to this store' });
+      }
+
+      if (req.user.role === 'store_manager' && store.managerId !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied to this store' });
+      }
+
+      // ✅ Set managerId from store automatically
+      finalManagerId = store.managerId;
     }
 
-    // Check access rights
-    if (req.user.role === 'admin' && store.adminId !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied to this store' });
+    // ✅ If managerId is provided directly in body (override)
+    if (bodyManagerId) {
+      finalManagerId = bodyManagerId;
+
     }
 
-    if (req.user.role === 'store_manager' && store.managerId !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied to this store' });
-    }
-
-    // Check if outlet with same name exists in store
+    // Check duplicate outlet name inside store
     const existingOutlet = await Outlet.findOne({
       where: {
         name: sequelize.where(
           sequelize.fn('LOWER', sequelize.col('name')),
           name.toLowerCase()
         ),
-        storeId
+        storeId: storeId || null
       }
     });
 
     if (existingOutlet) {
-      return res.status(400).json({ error: 'Outlet with this name already exists in this store' });
+      return res.status(400).json({
+        error: 'Outlet with this name already exists in this store'
+      });
     }
 
+    // ✅ Create outlet
     const outlet = await Outlet.create({
       name,
-      storeId,
+      storeId: storeId || null,
+      managerId: finalManagerId,
       address,
       contactPerson,
       phoneNumber,
@@ -51,6 +77,7 @@ exports.createOutlet = async (req, res) => {
       message: 'Outlet created successfully',
       outlet
     });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
