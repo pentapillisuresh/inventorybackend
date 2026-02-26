@@ -20,6 +20,12 @@ router.get('/',
   invoiceController.getAllInvoices
 );
 
+router.get('/storeManager',
+  authenticate,
+  authorize('store_manager'),
+  invoiceController.getAllInvoicesByStoreManager
+);
+
 // Get inventory by store
 router.get('/allInvoices/admin',
   authenticate,

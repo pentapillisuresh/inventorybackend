@@ -218,6 +218,47 @@ exports.getAllInvoices = async (req, res) => {
   }
 };
 
+exports.getAllInvoicesByStoreManager = async (req, res) => {
+  try {
+    const { storeId, type, status, startDate, endDate, page = 1, limit = 10 } = req.query;
+
+    const where = {storeManagerId:req.user.id};
+    if (storeId) where.storeId = storeId;
+    if (type) where.type = type;
+    if (status) where.status = status;
+
+    if (startDate && endDate) {
+      where.invoiceDate = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    }
+
+    const offset = (page - 1) * limit;
+
+    const { count, rows: invoices } = await Invoice.findAndCountAll({
+      where,
+      include: [
+        { model: Store },
+        { model: Outlet },
+        { model: User, as: 'Admin', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'StoreManager', attributes: ['id', 'name', 'email'] }
+      ],
+      order: [['invoiceDate', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    res.json({
+      total: count,
+      totalPages: Math.ceil(count / limit),
+      currentPage: parseInt(page),
+      invoices
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.getAllInvoicesByAdmin = async (req, res) => {
   try {
     const { storeId, type, status, startDate, endDate, page = 1, limit = 10 } = req.query;

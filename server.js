@@ -54,6 +54,7 @@ app.use('/api/expenditures', require('./src/routes/expenditures'));
 app.use('/api/inventory', require('./src/routes/inventory'));
 app.use('/api/invoice', require('./src/routes/invoice'));
 app.use('/api/reports', require('./src/routes/reports'));
+app.use('/api/upload', require('./src/routes/uploadImage'));
 
 /* ---------------- Error Handler ---------------- */
 app.use((err, req, res, next) => {

@@ -12,6 +12,30 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false
   },
+  BusinessImage: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  businessType: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  planType: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  maxStores: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  maxOutlet: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  BusinessLogo: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   email: {
     type: DataTypes.STRING,
     validate: {
@@ -41,6 +65,10 @@ const User = sequelize.define('User', {
       expenditure_management: false,
       create_outlets: false
     }
+  },
+  startDate: {
+    type: DataTypes.DATE,
+    allowNull: true
   },
   expiryDate: {
     type: DataTypes.DATE,

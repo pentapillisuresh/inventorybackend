@@ -39,7 +39,7 @@ router.get('/summary',
 );
 
 // Get low stock alerts
-router.get('/alerts/low-stock',
+router.get('/alerts/low-stock/:storeId',
   authenticate,
   inventoryController.getLowStockAlerts
 );

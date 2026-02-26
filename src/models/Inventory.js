@@ -21,7 +21,7 @@ const Inventory = sequelize.define('Inventory', {
       model: 'Stores',
       key: 'id'
     },
-    allowNull: false
+    allowNull: true
   },
   roomId: {
     type: DataTypes.INTEGER,

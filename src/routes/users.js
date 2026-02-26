@@ -17,16 +17,43 @@ router.put('/admins/:id/expiry',
   userController.updateAdminExpiry
 );
 
+router.put('/resetPassword',
+  authenticate,
+  userController.updateResetPassword
+);
+
+router.put('/admins/:id',
+  authenticate,
+  userController.updateAdminAccount
+);
+router.put('/admins/:id/renew',
+  authenticate,
+  authorize('superadmin'),
+  userController.renewUserAccount
+);
+
 router.get('/admins',
   authenticate,
   authorize('superadmin'),
   userController.getAllAdmins
 );
 
+router.get('/allUser/:createdBy',
+  authenticate,
+  authorize('superadmin'),
+  userController.getAllUserByCreatedby
+);
+
 router.get('/admin/all/store-managers',
   authenticate,
   authorize('admin'),
   userController.getManagersByAdmin
+);
+
+router.get('/:createdBy/store-managers/',
+  authenticate,
+  authorize('admin','superadmin'),
+  userController.getManagersByCreatedby
 );
 
 router.get('/admin/store-managers',
@@ -63,7 +90,7 @@ router.post('/store-managers',
 
 router.put('/store-managers/:id',
   authenticate,
-  authorize('admin'),
+  authorize('admin','superadmin'),
   checkPermission('create_store'),
   userController.updateStoreManager
 );
@@ -72,6 +99,12 @@ router.get('/UnassignedStores',
   authenticate,
   authorize('admin'),
   userController.getUnassignedStoresByAdmin
+);
+
+router.delete('/:id/:isActive',
+  authenticate,
+  authorize('admin','superadmin'),
+  userController.deleteUser
 );
 
 

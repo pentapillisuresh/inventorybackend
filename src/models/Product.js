@@ -50,7 +50,15 @@ const Product = sequelize.define('Product', {
       model: 'Users',
       key: 'id'
     },
-    allowNull: false
+    allowNull: true
+  },
+  createdBy: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    allowNull: true
   },
   isActive: {
     type: DataTypes.BOOLEAN,

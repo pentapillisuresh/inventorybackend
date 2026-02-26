@@ -21,7 +21,15 @@ const Outlet = sequelize.define('Outlet', {
       model: 'Stores',
       key: 'id'
     },
-    allowNull: false
+    allowNull: true
+  },
+  managerId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   },
   address: {
     type: DataTypes.TEXT

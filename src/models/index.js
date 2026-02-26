@@ -59,6 +59,9 @@ Invoice.belongsTo(Store, { foreignKey: 'storeId' });
 Store.hasMany(Outlet, { foreignKey: 'storeId' });
 Outlet.belongsTo(Store, { foreignKey: 'storeId' });
 
+User.hasMany(Outlet, { foreignKey: 'managerId' });
+Outlet.belongsTo(User, { foreignKey: 'managerId' });
+
 Store.hasMany(Ticket, { foreignKey: 'storeId' });
 Ticket.belongsTo(Store, { foreignKey: 'storeId' });
 

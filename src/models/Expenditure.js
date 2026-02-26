@@ -15,6 +15,10 @@ const Expenditure = sequelize.define('Expenditure', {
     },
     allowNull: false
   },
+  ledgerType: {
+    type: DataTypes.ENUM('credit', 'debit'),
+    defaultValue: 'credit'
+  },
   category: {
     type: DataTypes.STRING,
     allowNull: false

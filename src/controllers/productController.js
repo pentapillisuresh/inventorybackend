@@ -1,4 +1,4 @@
-const { Product, Category, Inventory, sequelize, Invoice, InvoiceItem, Store } = require('../models');
+const { Product, Category, Inventory, sequelize, Invoice, InvoiceItem, Store, Room, Rack, Freezer } = require('../models');
 const upload = require('../config/multer');
 const { uploadSingle } = require('../middleware/upload');
 const { Op, col, where } = require('sequelize');
@@ -31,7 +31,8 @@ exports.createProduct = [
         sku,
         description,
         categoryId,
-        price,quantity,
+        price,
+        quantity,
         costPrice,
         thresholdQuantity
       } = req.body;
@@ -265,6 +266,90 @@ exports.getAllProducts = async (req, res) => {
       currentPage: parseInt(page),
       products
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getProductsUnified = async (req, res) => {
+  try {
+    const {
+      categoryId,
+    } = req.query;
+
+    const { requestFrom, storeId } = req.body;
+
+    /**
+     * =========================================================
+     * CASE 1: ADMIN MANAGER → INVENTORY AS PRODUCTS
+     * =========================================================
+     */
+    if (requestFrom === "adminManager") {
+
+      const where = {};
+
+      if (storeId) where.storeId = storeId;
+
+      // Category filter via Product
+      if (categoryId) {
+        where["$Product.categoryId$"] = categoryId;
+      }
+
+      const inventory = await Inventory.findAll({
+        where,
+        include: [
+          {
+            model: Product,
+            
+            include: ["Category"]
+          },
+          { model: Store },
+          { model: Room },
+          { model: Rack },
+          { model: Freezer }
+        ],
+        order: [["lastUpdated", "DESC"]]
+      });
+
+      return res.json({
+        success:true,
+        products: inventory
+      });
+    }
+
+    /**
+     * =========================================================
+     * CASE 2: INDEPENDENT MANAGER → PRODUCTS
+     * =========================================================
+     */
+    if (requestFrom === "independentManager") {
+
+      const where = {createdBy:req.user.id};
+
+      if (categoryId) where.categoryId = categoryId;
+
+      const products = await Product.findAll({
+        where,
+        include: [
+          { model: Category },
+          {
+            model: Inventory,
+            attributes: ["id", "quantity", "storeId"]
+          }
+        ],
+        order: [["name", "ASC"]]
+      });
+
+      return res.json({
+        success:true,
+        products: products
+      });
+    }
+
+    return res.status(400).json({
+      error: "Invalid requestFrom value"
+    });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
