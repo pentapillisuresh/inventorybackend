@@ -131,6 +131,70 @@ exports.updateInventory = async (req, res) => {
   }
 };
 
+exports.createStoreManagerInventory = async (req, res) => {
+  const t = await sequelize.transaction();
+
+  try {
+    const { storeId } = req.params;
+    const { quantity, productId, action = 'adjust' } = req.body;
+
+    // 🔍 Check existing inventory
+    let inventory = await Inventory.findOne({
+      where: { storeId, productId },
+      transaction: t
+    });
+
+    let oldQuantity = 0;
+    let newQuantity = 0;
+
+    if (inventory) {
+      oldQuantity = inventory.quantity;
+
+      // 🔥 Handle different actions
+      if (action === 'add') {
+        newQuantity = oldQuantity + Number(quantity);
+      } else if (action === 'subtract') {
+        newQuantity = oldQuantity - Number(quantity);
+      } else {
+        // default: adjust
+        newQuantity = Number(quantity);
+      }
+
+      // ✅ Update existing inventory
+      await inventory.update(
+        { quantity: newQuantity },
+        { transaction: t }
+      );
+    } else {
+      // 🆕 Create new inventory
+      inventory = await Inventory.create(
+        {
+          storeId,
+          productId,
+          quantity: Number(quantity),
+          createdBy:req.user.id
+        },
+        { transaction: t }
+      );
+
+      newQuantity = Number(quantity);
+    }
+
+    // ✅ Commit transaction
+    await t.commit();
+
+    res.json({
+      message: 'Inventory updated successfully',
+      inventory,
+      oldQuantity,
+      newQuantity
+    });
+
+  } catch (error) {
+    await t.rollback();
+    res.status(500).json({ error: error.message });
+  }
+};
 // Move inventory to different location
 exports.moveInventory = async (req, res) => {
   const t = await sequelize.transaction();
@@ -162,7 +226,8 @@ exports.moveInventory = async (req, res) => {
       rackId: newRackId,
       freezerId: newFreezerId,
       quantity: quantityToMove,
-      reorderLevel: inventory.reorderLevel
+      reorderLevel: inventory.reorderLevel,
+      createdBy:req.user.id
     }, { transaction: t });
 
     // Reduce quantity from old location

@@ -11,7 +11,7 @@ const userController = require('../controllers/userController');
 // Store CRUD operations
 router.post('/', 
   authenticate, 
-  authorize('admin'), 
+  authorize('admin','superadmin'), 
   checkPermission('create_store'),
   storeController.createStore
 );
@@ -25,6 +25,12 @@ router.get('/:storeId',
   authenticate, 
   checkStoreAccess,
   storeController.getStoreById
+);
+
+router.get('/getStoreByManagerID/:managerId', 
+  authenticate, 
+  // checkStoreAccess,
+  storeController.getStoreByManagerId
 );
 
 router.put('/:storeId', 

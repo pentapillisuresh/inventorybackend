@@ -70,6 +70,7 @@ exports.createOutlet = async (req, res) => {
       contactPerson,
       phoneNumber,
       creditLimit,
+      createdBy:req.user.id,
       type: 'custom'
     });
 

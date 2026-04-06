@@ -1,7 +1,6 @@
 const sequelize = require('../config/database');
 
 // Import models
-const User = require('./User');
 const Store = require('./Store');
 const Room = require('./Room');
 const Rack = require('./Rack');
@@ -14,7 +13,7 @@ const InvoiceItem = require('./InvoiceItem');
 const Outlet = require('./Outlet');
 const Ticket = require('./Ticket');
 const Expenditure = require('./Expenditure');
-
+const User = require('./User');
 // Define associations
 
 // User associations
@@ -31,6 +30,9 @@ Category.belongsTo(User, { as: 'Admin', foreignKey: 'adminId' });
 User.hasMany(Product, { foreignKey: 'adminId' });
 Product.belongsTo(User, { as: 'Admin', foreignKey: 'adminId' });
 
+User.hasMany(Product, { foreignKey: 'createdBy' });
+Product.belongsTo(User, { as: 'createdUser', foreignKey: 'createdBy' });
+
 User.hasMany(Invoice, { foreignKey: 'adminId' });
 Invoice.belongsTo(User, { as: 'Admin', foreignKey: 'adminId' });
 
@@ -45,6 +47,9 @@ Ticket.belongsTo(User, { as: 'ResolvedBy', foreignKey: 'resolvedById' });
 
 User.hasMany(Expenditure, { foreignKey: 'adminId' });
 Expenditure.belongsTo(User, { as: 'Admin', foreignKey: 'adminId' });
+
+User.hasMany(Expenditure, { foreignKey: 'createdBy' });
+Expenditure.belongsTo(User, { as: 'createdUser', foreignKey: 'createdBy' });
 
 // Store associations
 Store.hasMany(Room, { foreignKey: 'storeId' });
@@ -61,6 +66,9 @@ Outlet.belongsTo(Store, { foreignKey: 'storeId' });
 
 User.hasMany(Outlet, { foreignKey: 'managerId' });
 Outlet.belongsTo(User, { foreignKey: 'managerId' });
+
+User.hasMany(Outlet, { foreignKey: 'createdBy' });
+Outlet.belongsTo(User, { as: 'createdUser', foreignKey: 'createdBy' });
 
 Store.hasMany(Ticket, { foreignKey: 'storeId' });
 Ticket.belongsTo(Store, { foreignKey: 'storeId' });
@@ -116,7 +124,6 @@ const syncDatabase = async () => {
 
 module.exports = {
   sequelize,
-  User,
   Store,
   Room,
   Rack,
@@ -129,5 +136,6 @@ module.exports = {
   Outlet,
   Ticket,
   Expenditure,
+  User,
   syncDatabase
 };

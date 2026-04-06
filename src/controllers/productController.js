@@ -11,7 +11,8 @@ exports.createCategory = async (req, res) => {
     const category = await Category.create({
       name,
       description,
-      adminId: req.user.id
+      adminId: req.user.id,
+      createdBy:req.user.id,
     });
 
     res.status(201).json(category);
@@ -37,7 +38,8 @@ exports.createProduct = [
         thresholdQuantity
       } = req.body;
 
-      const product = await Product.create({
+      // 🔥 Build payload dynamically
+      const productData = {
         name,
         sku,
         description,
@@ -47,8 +49,15 @@ exports.createProduct = [
         costPrice: costPrice ? Number(costPrice) : null,
         thresholdQuantity: thresholdQuantity ? Number(thresholdQuantity) : 10,
         image: req.file ? req.file.path : null,
-        adminId: req.user.id
-      });
+        createdBy: req.user.id
+      };
+
+      // ✅ Add adminId only if role is admin
+      if (req.user.role === "admin") {
+        productData.adminId = req.user.id;
+      }
+
+      const product = await Product.create(productData);
 
       res.status(201).json(product);
     } catch (error) {
@@ -56,18 +65,14 @@ exports.createProduct = [
     }
   }
 ];
+
 // Distribute products to store
 exports.distributeToStore = async (req, res) => {
   const t = await sequelize.transaction();
-  
+
   try {
     const { storeId } = req.params;
-    const { 
-      items, 
-      paymentMethod, 
-      creditAmount, 
-      paidAmount 
-    } = req.body;
+    const { items, paymentMethod, creditAmount = 0, paidAmount = 0 } = req.body;
 
     // Generate invoice number
     const invoiceNumber = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -79,29 +84,34 @@ exports.distributeToStore = async (req, res) => {
       adminId: req.user.id,
       type: 'distribution',
       paymentMethod,
-      totalAmount: 0, // Will be calculated
-      creditAmount: creditAmount || 0,
-      paidAmount: paidAmount || 0,
-      status: 'pending'
+      totalAmount: 0,
+      creditAmount,
+      paidAmount,
+      status: 'pending',
+      createdBy:req.user.id
     }, { transaction: t });
 
     let totalAmount = 0;
     const invoiceItems = [];
 
-    // Process each item
     for (const item of items) {
-      const { productId, quantity, price,roomId, locationType, locationId } = item;
-      
+      const { productId, quantity, price, roomId, locationType, locationId } = item;
+
+      // 🔍 Get product
       const product = await Product.findByPk(productId, { transaction: t });
       if (!product) {
-        await t.rollback();
-        return res.status(404).json({ error: `Product ${productId} not found` });
+        throw new Error(`Product ${productId} not found`);
+      }
+
+      // ❗ Check stock availability
+      if (product.quantity < quantity) {
+        throw new Error(`Insufficient stock for product ${product.name}`);
       }
 
       const itemTotal = quantity * price;
       totalAmount += itemTotal;
 
-      // Create invoice item
+      // 🧾 Create invoice item
       const invoiceItem = await InvoiceItem.create({
         invoiceId: invoice.id,
         productId,
@@ -109,24 +119,81 @@ exports.distributeToStore = async (req, res) => {
         price,
         totalPrice: itemTotal,
         locationType,
-        locationId
+        locationId,
+        createdBy:req.user.id
       }, { transaction: t });
 
       invoiceItems.push(invoiceItem);
 
-      // Update or create inventory
+      // ✅ 1. Update Product Quantity (OUT)
+      product.quantity -= quantity;
+      await product.save({ transaction: t });
+
+      // ✅ 2. Update Room Occupancy
+      let room = null;
+      if (roomId) {
+        room = await Room.findByPk(roomId, { transaction: t });
+
+        if (!room) {
+          throw new Error(`Room ${roomId} not found`);
+        }
+
+        if (room.currentOccupancy + quantity > room.capacity) {
+          throw new Error(`Room capacity exceeded for ${room.name}`);
+        }
+
+        room.currentOccupancy += quantity;
+        room.capacity -= quantity;
+        await room.save({ transaction: t });
+      }
+
+      // ✅ 3. Update Rack Occupancy (if applicable)
+      if (locationType === 'rack' && locationId) {
+        const rack = await Rack.findByPk(locationId, { transaction: t });
+
+        if (!rack) {
+          throw new Error(`Rack ${locationId} not found`);
+        }
+
+        if (rack.currentOccupancy + quantity > rack.capacity) {
+          throw new Error(`Rack capacity exceeded for ${rack.name}`);
+        }
+
+        rack.currentOccupancy += quantity;
+        rack.capacity -= quantity;
+        await rack.save({ transaction: t });
+      }else{
+        const freezer = await Freezer.findByPk(locationId, { transaction: t });
+
+        if (!freezer) {
+          throw new Error(`Rack ${locationId} not found`);
+        }
+
+        if (freezer.currentOccupancy + quantity > freezer.capacity) {
+          throw new Error(`Rack capacity exceeded for ${freezer.name}`);
+        }
+
+        freezer.currentOccupancy += quantity;
+        freezer.capacity -= quantity;
+        await freezer.save({ transaction: t });
+      }
+
+      // ✅ 4. Update/Create Inventory
+      const whereCondition = {
+        productId,
+        storeId,
+        roomId
+      };
+
+      // dynamically attach rackId or other location
+      if (locationType && locationId) {
+        whereCondition[`${locationType}Id`] = locationId;
+      }
+
       const [inventory] = await Inventory.findOrCreate({
-        where: { 
-          productId, 
-          storeId,
-          roomId,
-          [locationType + 'Id']: locationId 
-        },
+        where: whereCondition,
         defaults: {
-          productId,
-          storeId,
-          roomId,
-          [locationType + 'Id']: locationId,
+          ...whereCondition,
           quantity: 0,
           reorderLevel: product.thresholdQuantity
         },
@@ -136,34 +203,44 @@ exports.distributeToStore = async (req, res) => {
       inventory.quantity += quantity;
       await inventory.save({ transaction: t });
 
-      // Check threshold alert
+      // ⚠️ Threshold alert
       if (inventory.quantity <= inventory.reorderLevel) {
-        // Create alert notification (implement notification system)
-        console.log(`Alert: Product ${productId} is below threshold`);
+        console.log(`⚠️ Alert: Product ${product.name} is below threshold`);
       }
     }
 
-    // Update invoice total
+    // ✅ Update invoice total
     invoice.totalAmount = totalAmount;
     await invoice.save({ transaction: t });
 
-    // Update store credit
+    // ✅ Update store credit
     if (paymentMethod === 'credit' || paymentMethod === 'mixed') {
       const store = await Store.findByPk(storeId, { transaction: t });
+
+      if (!store) {
+        throw new Error(`Store ${storeId} not found`);
+      }
+
       store.currentCredit += creditAmount;
       await store.save({ transaction: t });
     }
 
+    // ✅ Commit transaction
     await t.commit();
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Products distributed successfully',
       invoice,
       invoiceItems
     });
+
   } catch (error) {
+    // ❌ Rollback everything if any error
     await t.rollback();
-    res.status(500).json({ error: error.message });
+
+    return res.status(500).json({
+      error: error.message
+    });
   }
 };
 

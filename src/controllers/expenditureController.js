@@ -17,7 +17,8 @@ exports.createExpenditure = async (req, res) => {
       amount: parseFloat(amount),
       date: date ? new Date(date) : new Date(),
       receiptImage: req.file ? req.file.path : null,
-      verified: false // Initially not verified
+      verified: false,// Initially not verified
+      createdBy: req.user.id
     });
 
     res.status(201).json({

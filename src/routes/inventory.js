@@ -23,6 +23,11 @@ router.put('/:id',
   authenticate,
   authorize('admin', 'store_manager'),
   inventoryController.updateInventory
+)
+router.post('/storeManager/:storeId',
+  authenticate,
+  authorize('admin', 'store_manager'),
+  inventoryController.createStoreManagerInventory
 );
 
 // Move inventory to different location

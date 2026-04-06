@@ -29,7 +29,7 @@ router.get('/categories/:categoryId/products',
 // Product routes
 router.post('/',
   authenticate,
-  authorize('admin'),
+  authorize('admin', 'store_manager'),
   checkPermission('create_invoices'), // Permission for product creation
   [
     body('name').notEmpty().trim(),

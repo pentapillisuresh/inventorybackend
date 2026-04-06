@@ -3,23 +3,32 @@ const { fn, col, literal,where} = require('sequelize');
 // Create store
 exports.createStore = async (req, res) => {
   try {
-    const { name, address, phoneNumber, email, creditLimit } = req.body;
+    const { name, address, phoneNumber, email, creditLimit,managerId } = req.body;
 
-    const store = await Store.create({
+    const storeData = {
       name,
       address,
       phoneNumber,
       email,
       creditLimit,
-      adminId: req.user.id
-    });
-
+      adminId: req.user.id,
+      createdBy: req.user.id
+    };
+    
+    // ✅ Add managerId only if present
+    if (managerId) {
+      storeData.managerId = managerId;
+    }
+    
+    const store = await Store.create(storeData);
+    
     // Create dummy outlet
     await Outlet.create({
       name: `${name} - Dummy Outlet`,
       type: 'dummy',
       storeId: store.id,
-      address
+      address,
+      createdBy:req.user.id,
     });
 
     res.status(201).json(store);
@@ -38,7 +47,8 @@ exports.createRoom = async (req, res) => {
       name,
       roomNumber,
       storeId,
-      capacity
+      capacity,
+      createdBy:req.user.id
     });
 
     res.status(201).json(room);
@@ -57,7 +67,8 @@ exports.createRack = async (req, res) => {
       name,
       rackNumber,
       roomId,
-      capacity
+      capacity,
+      createdBy:req.user.id
     });
 
     res.status(201).json(rack);
@@ -77,7 +88,8 @@ exports.createFreezer = async (req, res) => {
       freezerNumber,
       roomId,
       temperature,
-      capacity
+      capacity,
+      createdBy:req.user.id
     });
 
     res.status(201).json(freezer);
@@ -98,7 +110,8 @@ exports.createOutlet = async (req, res) => {
       storeId,
       address,
       contactPerson,
-      phoneNumber
+      phoneNumber,
+      createdBy:req.user.id
     });
 
     res.status(201).json(outlet);
@@ -297,7 +310,7 @@ exports.getStoreById = async (req, res) => {
           attributes: []
         }
       ],
-      attributes: ['id', 'name', 'rackNumber', 'capacity', 'currentOccupancy'],
+      attributes: ['id', 'name', 'rackNumber', 'capacity','roomId', 'currentOccupancy'],
       order: [['name', 'ASC']]
     });
 
@@ -318,6 +331,7 @@ exports.getStoreById = async (req, res) => {
         'freezerNumber',
         'temperature',
         'capacity',
+        'roomId',
         'currentOccupancy'
       ],
       order: [['name', 'ASC']]
@@ -365,6 +379,132 @@ exports.getStoreById = async (req, res) => {
       freezers,
       inventory,
       invoices
+});
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getStoreByManagerId = async (req, res) => {
+  try {
+    const { managerId } = req.params;
+
+    const store = await Store.findOne({where:{managerId:managerId}}, {
+      include: [
+        {
+          model: User,
+          as: 'Admin',
+          attributes: ['id', 'name', 'email']
+        },
+        {
+          model: User,
+          as: 'Manager',
+          attributes: ['id', 'name', 'email']
+        }
+      ]
+    });
+
+    const summary = await Inventory.findOne({
+      where: { storeId:store.id },
+      attributes: [
+        [fn('COUNT', literal('DISTINCT productId')), 'totalProducts'],
+        [fn('SUM', col('Inventory.quantity')), 'totalItems'],
+        [
+          fn(
+            'SUM',
+            literal(
+              'Inventory.quantity * COALESCE(Product.costPrice, Product.price)'
+            )
+          ),
+          'stockValue'
+        ]
+      ],
+      include: [
+        {
+          model: Product,
+          attributes: []
+        }
+      ],
+      raw: true
+    });
+// ---------------------------
+    // Rooms list (store-level)
+    // ---------------------------
+    const rooms = await Room.findAll({
+      where: { storeId:store.id },
+      attributes: ['id', 'name', 'roomNumber', 'capacity', 'currentOccupancy'],
+      order: [['name', 'ASC']]
+    });
+
+    // ---------------------------
+    // Racks list (via rooms)
+    // ---------------------------
+    const racks = await Rack.findAll({
+      include: [
+        {
+          model: Room,
+          where: { storeId:store.id },
+          attributes: []
+        }
+      ],
+      attributes: ['id', 'name', 'rackNumber', 'capacity','roomId', 'currentOccupancy'],
+      order: [['name', 'ASC']]
+    });
+
+    // ---------------------------
+    // Freezers list (via rooms)
+    // ---------------------------
+    const freezers = await Freezer.findAll({
+      include: [
+        {
+          model: Room,
+          where: { storeId:store.id },
+          attributes: []
+        }
+      ],
+      attributes: [
+        'id',
+        'name',
+        'freezerNumber',
+        'temperature',
+        'capacity',
+        'roomId',
+        'currentOccupancy'
+      ],
+      order: [['name', 'ASC']]
+    });
+
+    const inventory = await Inventory.findAll({
+      where: { storeId:store.id },
+      include: [
+        {
+          model: Product,
+          include: ['Category']
+        },
+        { model: Store },
+        { model: Room },
+        { model: Rack },
+        { model: Freezer }
+      ],
+      order: [['lastUpdated', 'DESC']]
+    });
+
+
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found' });
+    }
+
+    res.json({      
+      success: true,
+      data: store,
+      storeId:store.id,
+      totalProducts: Number(summary.totalProducts || 0),
+      totalItems: Number(summary.totalItems || 0),
+      stockValue: Number(summary.stockValue || 0),
+      rooms,
+      racks,
+      freezers,
+      inventory,
 });
   } catch (error) {
     res.status(500).json({ error: error.message });

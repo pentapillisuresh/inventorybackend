@@ -60,6 +60,14 @@ const Invoice = sequelize.define('Invoice', {
     type: DataTypes.DECIMAL(15, 2),
     defaultValue: 0
   },
+  createdBy: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    allowNull: true
+  },
   status: {
     type: DataTypes.ENUM('pending', 'completed', 'cancelled'),
     defaultValue: 'pending'
@@ -68,6 +76,7 @@ const Invoice = sequelize.define('Invoice', {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   }
-});
+
+}); 
 
 module.exports = Invoice;

@@ -29,20 +29,29 @@ const InvoiceItem = sequelize.define('InvoiceItem', {
   },
   price: {
     type: DataTypes.DECIMAL(15, 2),
-    allowNull: false
+    allowNull: true
   },
   totalPrice: {
     type: DataTypes.DECIMAL(15, 2),
-    allowNull: false
+    allowNull: true
   },
   locationType: {
     type: DataTypes.ENUM('room', 'rack', 'freezer'),
-    allowNull: false
+    allowNull: true
   },
   locationId: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: true
+  },
+  createdBy: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    allowNull: true
   }
-});
+
+}); 
 
 module.exports = InvoiceItem;

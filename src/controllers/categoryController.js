@@ -24,7 +24,8 @@ exports.createCategory = async (req, res) => {
     const category = await Category.create({
       name,
       description,
-      adminId: req.user.id
+      adminId: req.user.id,
+      createdBy:req.user.id
     });
 
     res.status(201).json({
@@ -268,7 +269,8 @@ exports.bulkCreateCategories = async (req, res) => {
     const formattedCategories = categories.map(cat => ({
       name: cat.name.trim(),
       description: cat.description || null,
-      adminId: req.user.id
+      adminId: req.user.id,
+      createdBy: req.user.id
     }));
 
     // Remove duplicates

@@ -28,21 +28,24 @@ const Inventory = sequelize.define('Inventory', {
     references: {
       model: 'Rooms',
       key: 'id'
-    }
+    },
+    allowNull: true
   },
   rackId: {
     type: DataTypes.INTEGER,
     references: {
       model: 'Racks',
       key: 'id'
-    }
+    },
+    allowNull: true
   },
   freezerId: {
     type: DataTypes.INTEGER,
     references: {
       model: 'Freezers',
       key: 'id'
-    }
+    },
+    allowNull: true
   },
   quantity: {
     type: DataTypes.INTEGER,
@@ -54,7 +57,15 @@ const Inventory = sequelize.define('Inventory', {
   },
   lastUpdated: {
     type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+    defaultValue: DataTypes.NOW 
+  },
+  createdBy: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    allowNull: true
   }
 });
 

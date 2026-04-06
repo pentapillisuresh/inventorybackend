@@ -51,10 +51,18 @@ const Store = sequelize.define('Store', {
     },
     allowNull: false
   },
+  createdBy: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    allowNull: true
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   }
 });
-
+ 
 module.exports = Store;

@@ -74,16 +74,17 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true
   },
-  isActive: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true
-  },
   createdBy: {
     type: DataTypes.INTEGER,
     references: {
       model: 'Users',
       key: 'id'
-    }
+    },
+    allowNull: true
+  },
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   }
 }, {
   indexes: [

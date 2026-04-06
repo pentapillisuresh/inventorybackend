@@ -46,7 +46,8 @@ exports.createOutletInvoice = async (req, res) => {
       type: 'outlet_sale',
       paymentMethod,
       totalAmount: paidAmount,
-      status: 'pending'
+      status: 'pending',
+      createdBy:req.user.id
     }, { transaction: t });
 
 
@@ -64,7 +65,6 @@ exports.createOutletInvoice = async (req, res) => {
 
 exports.createOutletInvoiceWithItem = async (req, res) => {
   const t = await sequelize.transaction();
-
   try {
     const { storeId, outletId } = req.params;
     const { items, paymentMethod, notes } = req.body;
@@ -77,7 +77,6 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
       where: { id: outletId, storeId },
       transaction: t
     });
-
     if (!outlet) {
       await t.rollback();
       return res.status(404).json({ error: 'Outlet not found in this store' });
@@ -92,7 +91,8 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
       type: 'outlet_sale',
       paymentMethod,
       totalAmount: 0,
-      status: 'pending'
+      status: 'pending',
+      createdBy:req.user.id
     }, { transaction: t });
 
     let totalAmount = 0;
@@ -100,13 +100,14 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
 
     // Process each item
     for (const item of items) {
-      const { productId, quantity, price } = item;
+      const { productId, quantity, price, inventoryId } = item;
 
       // Check product availability
       const inventory = await Inventory.findOne({
         where: {
           productId,
           storeId,
+          id: inventoryId,
           quantity: { [Op.gte]: quantity }
         },
         include: [Product],
@@ -130,9 +131,9 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
         quantity,
         price,
         totalPrice: itemTotal,
-        locationType: inventory.roomId ? 'room' :
-          inventory.rackId ? 'rack' : 'freezer',
-        locationId: inventory.roomId || inventory.rackId || inventory.freezerId
+        locationType: inventory.roomId ? 'room' : inventory.rackId ? 'rack' : 'freezer',
+        locationId: inventory.roomId || inventory.rackId || inventory.freezerId,
+        createdBy:req.user.id
       }, { transaction: t });
 
       invoiceItems.push(invoiceItem);
@@ -222,7 +223,7 @@ exports.getAllInvoicesByStoreManager = async (req, res) => {
   try {
     const { storeId, type, status, startDate, endDate, page = 1, limit = 10 } = req.query;
 
-    const where = {storeManagerId:req.user.id};
+    const where = { storeManagerId: req.user.id };
     if (storeId) where.storeId = storeId;
     if (type) where.type = type;
     if (status) where.status = status;
@@ -303,7 +304,7 @@ exports.getAllInvoicesByAdmin = async (req, res) => {
       limit: Number(limit),
       offset: Number(offset)
     });
-    
+
     res.json({
       total: count,
       totalPages: Math.ceil(count / limit),
@@ -320,7 +321,7 @@ exports.getAllDistributedInvoicesByAdmin = async (req, res) => {
 
     const where = {
       adminId: req.user.id,
-      type:"distribution"
+      type: "distribution"
     };
     if (storeId) where.storeId = storeId;
     if (status) where.status = status;
@@ -358,7 +359,7 @@ exports.getAllDistributedInvoicesByAdmin = async (req, res) => {
       limit: Number(limit),
       offset: Number(offset)
     });
-    
+
     res.json({
       total: count,
       totalPages: Math.ceil(count / limit),
@@ -414,7 +415,7 @@ exports.getAllNonDistributionInvoicesByAdmin = async (req, res) => {
       limit: Number(limit),
       offset: Number(offset)
     });
-    
+
     res.json({
       total: count,
       totalPages: Math.ceil(count / limit),
