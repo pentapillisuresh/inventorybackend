@@ -1,21 +1,35 @@
 const { Store } = require("../models");
 
 exports.checkPermission = (permission) => {
-    return (req, res, next) => {
-      if (req.user.role === 'superadmin') {
-        return next();
-      }
-  
-      if (!req.user.permissions || !req.user.permissions[permission]) {
-        console.log("permission::",req.user.permissions)
-        return res.status(403).json({ 
-          error: `Permission denied: ${permission} required` 
+  return (req, res, next) => {
+
+    if (req.user.role === 'superadmin') {
+      return next();
+    }
+
+    let permissions = req.user.permissions;
+
+    // 🔥 Fix: convert string → object
+    if (typeof permissions === 'string') {
+      try {
+        permissions = JSON.parse(permissions);
+      } catch (err) {
+        return res.status(500).json({
+          error: 'Invalid permissions format'
         });
       }
-  
-      next();
-    };
+    }
+
+    if (!permissions || !permissions[permission]) {
+      return res.status(403).json({ 
+        permission: permissions,
+        error: `Permission denied: ${permission} required` 
+      });
+    }
+
+    next();
   };
+};
   
   exports.checkStoreAccess = async (req, res, next) => {
     try {
