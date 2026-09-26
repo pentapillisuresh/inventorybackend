@@ -27,6 +27,11 @@ router.get('/',
   expenditureController.getAllExpenditures
 );
 
+router.get('/:UserId/getByUser',
+  authenticate,
+  expenditureController.getByUser
+);
+
 // Get expenditure by ID
 router.get('/:id',
   authenticate,

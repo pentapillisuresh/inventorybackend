@@ -40,7 +40,7 @@ const Expenditure = sequelize.define('Expenditure', {
   },
   verified: {
     type: DataTypes.BOOLEAN,
-    defaultValue: false
+    defaultValue: true
   },
   createdBy: {
     type: DataTypes.INTEGER,

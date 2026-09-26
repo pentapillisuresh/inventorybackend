@@ -120,6 +120,84 @@ exports.getAllExpenditures = async (req, res) => {
   }
 };
 
+exports.getByUser = async (req, res) => {
+  try {
+    const { 
+      startDate, 
+      endDate, 
+      category, 
+      verified,
+      page = 1, 
+      limit = 20 
+    } = req.query;
+    
+    const offset = (page - 1) * limit;
+
+    const where = {};
+    
+    // Date filter
+    if (startDate && endDate) {
+      where.date = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    }
+    
+    // Category filter
+    if (category) {
+      where.category = { [Op.like]: `%${category}%` };
+    }
+    
+    // Verified filter
+    if (verified !== undefined) {
+      where.verified = verified === 'true';
+    }
+
+    // Role-based filtering
+      where.adminId = req.user.id;
+
+    const { count, rows: expenditures } = await Expenditure.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'Admin',
+          attributes: ['id', 'name', 'email']
+        }
+      ],
+      order: [['date', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    // Calculate totals
+    const totalAmount = await Expenditure.sum('amount', { where });
+    const verifiedAmount = await Expenditure.sum('amount', { 
+      where: { ...where, verified: true } 
+    });
+    const pendingAmount = await Expenditure.sum('amount', { 
+      where: { ...where, verified: false } 
+    });
+
+    res.json({
+      summary: {
+        total: count,
+        totalAmount: totalAmount || 0,
+        verifiedAmount: verifiedAmount || 0,
+        pendingAmount: pendingAmount || 0
+      },
+      expenditures,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        pages: Math.ceil(count / limit),
+        limit: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Get expenditure by ID
 exports.getExpenditureById = async (req, res) => {
   try {
