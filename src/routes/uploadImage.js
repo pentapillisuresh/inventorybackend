@@ -17,13 +17,11 @@ router.post(
 
       // ✅ Build full base URL dynamically
       const baseUrl = `${req.protocol}://${req.get('host')}`;
-      console.log("baseUrl::", baseUrl)
       // Normalize slashes
       let imagePath = req.file.path.replace(/\\/g, '/');
 
       // Remove "src/" from beginning if exists
       imagePath = imagePath.replace(/^src\//, '');
-      console.log("imagePath::", imagePath)
       return res.status(200).json({
         message: 'Image uploaded successfully',
         imagePath: `${baseUrl}/${imagePath}`  // ✅ Full URL

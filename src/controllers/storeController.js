@@ -1,16 +1,20 @@
-const { Store, Room, Rack, Freezer, Outlet, User,sequelize, Invoice, Inventory, Product } = require('../models');
-const { fn, col, literal,where} = require('sequelize');
+const { Store, Room, Rack, Freezer, Outlet, User,sequelize, Invoice, Inventory, Product, InvoiceItem } = require('../models');
+const { fn, col, literal,where, Op} = require('sequelize');
 // Create store
 exports.createStore = async (req, res) => {
   try {
-    const { name, address, phoneNumber, email, creditLimit,managerId } = req.body;
+    const { name, address, phoneNumber, email, creditLimit,managerId,CIN_No,FSSAI_No,GST_No,officeAddress } = req.body;
 
     const storeData = {
       name,
       address,
       phoneNumber,
+      CIN_No,
+      officeAddress,
       email,
+      FSSAI_No,
       creditLimit,
+      GST_No,
       adminId: req.user.id,
       createdBy: req.user.id
     };
@@ -28,6 +32,9 @@ exports.createStore = async (req, res) => {
       type: 'dummy',
       storeId: store.id,
       address,
+      CIN_No,
+      GST_No,
+      FSSAI_No,
       createdBy:req.user.id,
     });
 
@@ -102,7 +109,7 @@ exports.createFreezer = async (req, res) => {
 exports.createOutlet = async (req, res) => {
   try {
     const { storeId } = req.params;
-    const { name, address, contactPerson, phoneNumber } = req.body;
+    const { name, address, contactPerson, phoneNumber,CIN_No,GST_No,FSSAI_No} = req.body;
 
     const outlet = await Outlet.create({
       name,
@@ -111,6 +118,9 @@ exports.createOutlet = async (req, res) => {
       address,
       contactPerson,
       phoneNumber,
+      CIN_No,
+      GST_No,
+      FSSAI_No,
       createdBy:req.user.id
     });
 
@@ -513,7 +523,6 @@ exports.getStoreByManagerId = async (req, res) => {
 
 // update store
 exports.updateStore = async (req, res) => {
-  console.log("rrr")
   try {
     const { storeId } = req.params;
     const {
@@ -521,6 +530,10 @@ exports.updateStore = async (req, res) => {
       address,
       phoneNumber,
       email,
+      officeAddress,      
+      CIN_No,
+      GST_No,
+      FSSAI_No,
       creditLimit,
       currentCredit,
       managerId,
@@ -546,6 +559,10 @@ exports.updateStore = async (req, res) => {
     if (currentCredit !== undefined) updates.currentCredit = parseFloat(currentCredit);
     if (managerId !== undefined) updates.managerId = managerId;
     if (isActive !== undefined) updates.isActive = isActive;
+    if (CIN_No !== undefined) updates.CIN_No = CIN_No;
+    if (GST_No !== undefined) updates.GST_No = GST_No;
+    if (FSSAI_No !== undefined) updates.FSSAI_No = FSSAI_No;
+    if (officeAddress !== undefined) updates.officeAddress = officeAddress;
 
     await store.update(updates);
 
@@ -555,6 +572,165 @@ exports.updateStore = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.setStoreAsUnassignedStoresByAdmin = async (req, res) => {
+  try {
+
+    const { storeId } = req.params;
+
+    // Find store
+    const store = await Store.findByPk(storeId);
+
+    if (!store) {
+      return res.status(404).json({
+        success: false,
+        error: "Store not found",
+      });
+    }
+
+    // Admin access check
+    if (
+      req.user.role === "admin" &&
+      store.adminId !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied",
+      });
+    }
+
+    // Check if already unassigned
+    if (!store.managerId) {
+      return res.status(400).json({
+        success: false,
+        error: "No manager assigned to this store",
+      });
+    }
+
+    // Unassign manager
+    store.managerId = null;
+
+    // Save changes
+    await store.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Manager unassigned successfully",
+      store,
+    });
+
+  } catch (error) {
+
+    console.error("Unassign Store Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+exports.setManagerAssignForStoreByAdmin = async (req, res) => {
+  try {
+
+    const { storeId } = req.params;
+    const { managerId } = req.body;
+
+    // Validate managerId
+    if (!managerId) {
+      return res.status(400).json({
+        success: false,
+        error: "managerId is required",
+      });
+    }
+
+    // Find store
+    const store = await Store.findByPk(storeId);
+
+    if (!store) {
+      return res.status(404).json({
+        success: false,
+        error: "Store not found",
+      });
+    }
+
+    // Admin access check
+    if (
+      req.user.role === "admin" &&
+      store.adminId !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied",
+      });
+    }
+
+    // Check if store already has manager
+    if (store.managerId) {
+      return res.status(400).json({
+        success: false,
+        error: "Manager already assigned to this store",
+      });
+    }
+
+    // Find manager
+    const manager = await User.findOne({
+      where: {
+        id: managerId,
+        role: 'store_manager',
+      }
+    });
+
+    if (!manager) {
+      return res.status(404).json({
+        success: false,
+        error: "Store manager not found",
+      });
+    }
+
+    // Check if manager already assigned to another store
+    const alreadyAssigned = await Store.findOne({
+      where: {
+        managerId: managerId
+      }
+    });
+
+    if (alreadyAssigned) {
+      return res.status(400).json({
+        success: false,
+        error: "Manager already assigned to another store",
+      });
+    }
+
+    // Assign manager to store
+    await store.update({
+      managerId: managerId
+    });
+
+    // Optional: copy store details to manager
+    await manager.update({
+      officeAddress: store.officeAddress,
+      FSSAI_No: store.FSSAI_No,
+      GST_No: store.GST_No,
+      CIN_No: store.CIN_No
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Manager assigned successfully",
+      data: store,
+    });
+
+  } catch (error) {
+
+    console.error("Assign Manager Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
 };
 
@@ -575,6 +751,119 @@ exports.getStoreRooms = async (req, res) => {
     res.json(rooms);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getWaybill = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+
+    // 1. Get invoices against storeId
+    const invoices = await Invoice.findAll({
+      where: { storeId },
+      attributes: ['id', 'invoiceNumber', 'batchID']
+    });
+
+    // 2. Extract batch IDs
+    const batchIds = invoices
+      .map(inv => inv.batchID)
+      .filter(batch => batch); // remove null/undefined
+
+    // 3. Get invoice items against batchIds
+    const invoiceItems = await InvoiceItem.findAll({
+      where: {
+        batchId: {
+          [Op.in]: batchIds
+        }
+      },
+    
+      attributes: [
+        'invoiceId',
+        'boxName',
+        'batchId',
+        'quantity',
+        'price',
+        'totalPrice',
+        'createdAt'
+      ],
+    
+      include: [
+        {
+          model: Product,
+          attributes: [
+            'id',
+            'name',
+            'HSN_No'
+          ]
+        },
+    
+        {
+          model: Invoice,
+          as: 'invoice',
+    
+          attributes: [
+            'id',
+            'invoiceNumber',
+            'batchID',
+            'storeId',
+            'type',
+            'outletId',
+            'adminId',
+            'createdAt'
+          ],
+    
+          include: [
+            {
+              model: Store,
+              as: 'Store',
+              attributes: [
+                'id',
+                'name',
+                'address',
+                'phoneNumber'
+              ]
+            },
+    
+            {
+              model: Outlet,
+              as: 'Outlet',
+              attributes: [
+                'id',
+                'name',
+                'address',
+                'phoneNumber'
+              ]
+            },
+    
+            {
+              model: User,
+              as: 'createdUser',
+              attributes: [
+                'id',
+                'name',
+                'email',
+                'officeAddress',
+                'phoneNumber'
+              ]
+            }
+          ]
+        }
+      ]
+    });
+    
+    // 4. Send response
+    res.json({
+      success: true,
+      waybills:invoiceItems
+    });
+
+  } catch (error) {
+    console.error('Waybill Error:', error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 };
 

@@ -13,7 +13,11 @@ const Product = sequelize.define('Product', {
   },
   sku: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
+  },
+  HSN_No: { 
+    type: DataTypes.STRING,
+    allowNull: true
   },
   description: {
     type: DataTypes.TEXT
@@ -30,9 +34,25 @@ const Product = sequelize.define('Product', {
     type: DataTypes.INTEGER,
     defaultValue: 0
   },
+  units: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   price: {
     type: DataTypes.DECIMAL(15, 2),
     allowNull: false
+  },
+  IGST: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true
+  },
+  SGST: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true
+  },
+  CGST: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true
   },
   costPrice: {
     type: DataTypes.DECIMAL(15, 2)

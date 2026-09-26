@@ -27,6 +27,22 @@ const Store = sequelize.define('Store', {
       isEmail: true
     }
   },
+  officeAddress: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  FSSAI_No: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  GST_No: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  CIN_No: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   creditLimit: {
     type: DataTypes.DECIMAL(15, 2),
     defaultValue: 0

@@ -10,14 +10,6 @@ router.post('/',
   authenticate,
   authorize('admin', 'store_manager'),
   checkPermission('create_outlets'),
-  [
-    body('name').notEmpty().trim().withMessage('Outlet name is required'),
-    body('storeId').optional(),
-    body('address').optional().trim(),
-    body('contactPerson').optional().trim(),
-    body('phoneNumber').optional().trim(),
-    body('creditLimit').optional().trim()
-  ],
   outletController.createOutlet
 );
 

@@ -49,6 +49,12 @@ router.post('/:storeId/rooms',
   storeController.createRoom
 );
 
+router.get('/:storeId/waybills',
+  authenticate,
+  authorize('admin', 'store_manager'),
+  storeController.getWaybill
+);
+
 router.get('/:storeId/rooms',
   authenticate,
   checkStoreAccess,
@@ -122,9 +128,17 @@ router.get('/:storeId/inventory/low-stock',
 router.post('/:storeId/outlets/:outletId/invoices',
   authenticate,
   authorize('admin', 'store_manager'),
-  checkStoreAccess,
+  // checkStoreAccess,
   checkPermission('create_invoices'),
   invoiceController.createOutletInvoiceWithItem
+);
+
+router.post('/:storeId/outlets/:outletId/invoices/byAdmin',
+  authenticate,
+  authorize('admin', 'store_manager'),
+  // checkStoreAccess,
+  checkPermission('create_invoices'),
+  invoiceController.createOutletInvoiceWithItemByAdmin
 );
 
 router.post('/:storeId/invoices/payment/:outletId',
@@ -137,7 +151,6 @@ router.post('/:storeId/invoices/payment/:outletId',
 
 router.get('/:storeId/invoices',
   authenticate,
-  checkStoreAccess,
   invoiceController.getAllInvoices
 );
 
@@ -174,6 +187,20 @@ router.delete('/:storeId',
     authorize('admin'),
     checkStoreAccess, 
     userController.getUnassignedStoresByAdmin
+  );
+  
+  router.put('/UnassignedStores/:storeId',
+    authenticate,
+    authorize('admin'),
+    checkStoreAccess, 
+    storeController.setStoreAsUnassignedStoresByAdmin
+  );
+  
+  router.put('/assignedStores/:storeId',
+    authenticate,
+    authorize('admin'),
+    checkStoreAccess, 
+    storeController.setManagerAssignForStoreByAdmin
   );
   
 

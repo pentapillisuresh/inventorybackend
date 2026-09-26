@@ -15,7 +15,15 @@ const InvoiceItem = sequelize.define('InvoiceItem', {
     },
     allowNull: false
   },
-  productId: {
+  boxName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+    batchId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+    productId: {
     type: DataTypes.INTEGER,
     references: {
       model: 'Products',
@@ -35,6 +43,23 @@ const InvoiceItem = sequelize.define('InvoiceItem', {
     type: DataTypes.DECIMAL(15, 2),
     allowNull: true
   },
+  netPrice: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true
+  },
+  IGSTAmount: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true
+  },
+  SGSTAmount: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true
+  },
+  CGSTAmount: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true
+  },
+
   locationType: {
     type: DataTypes.ENUM('room', 'rack', 'freezer'),
     allowNull: true

@@ -11,6 +11,10 @@ const Invoice = sequelize.define('Invoice', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  batchID: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   storeId: {
     type: DataTypes.INTEGER,
     references: {

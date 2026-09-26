@@ -15,6 +15,18 @@ const Outlet = sequelize.define('Outlet', {
     type: DataTypes.ENUM('dummy', 'custom'),
     defaultValue: 'custom'
   },
+  FSSAI_No: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  GST_No: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  CIN_No: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   storeId: {
     type: DataTypes.INTEGER,
     references: {

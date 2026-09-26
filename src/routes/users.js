@@ -74,6 +74,11 @@ router.get('/admin/summery',
   userController.getAdminSummary
 );
 
+router.get('/getUserById',
+  authenticate,
+  userController.getUserById
+);
+
 router.get('/admin/store/summery',
   authenticate,
   authorize('admin'),
@@ -99,6 +104,12 @@ router.get('/UnassignedStores',
   authenticate,
   authorize('admin'),
   userController.getUnassignedStoresByAdmin
+);
+
+router.get('/getNonAssignedManagers',
+  authenticate,
+  authorize('admin'),
+  userController.getNonAssignedManagers
 );
 
 router.delete('/:id/:isActive',

@@ -24,6 +24,22 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  officeAddress: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  FSSAI_No: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  GST_No: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  CIN_No: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   maxStores: {
     type: DataTypes.INTEGER,
     allowNull: true

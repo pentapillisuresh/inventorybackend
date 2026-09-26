@@ -36,6 +36,7 @@ router.get('/allDistributed/Invoices/admin',
   authenticate,
   invoiceController.getAllDistributedInvoicesByAdmin
 );
+
 router.get('/allNonDistributed/Invoices/admin',
   authenticate,
   invoiceController.getAllNonDistributionInvoicesByAdmin
@@ -52,6 +53,11 @@ router.post('/:id/move',
 router.get('/summary',
   authenticate,
   inventoryController.getOverallSummary
+);
+
+router.put('/:id',
+  authenticate,
+  invoiceController.updateInvoiceStatus
 );
 
 

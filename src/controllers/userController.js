@@ -1,5 +1,5 @@
-const { User, Store, Inventory, Expenditure,sequelize } = require('../models');
-const { fn, col, literal,Op } = require('sequelize');
+const { User, Store, Inventory, Expenditure, sequelize } = require('../models');
+const { fn, col, literal, Op } = require('sequelize');
 
 // SuperAdmin creates admin
 
@@ -12,7 +12,7 @@ exports.createAdmin = async (req, res) => {
       email,
       phoneNumber,
       password,
-      expiryDate,role,
+      expiryDate, role,
       BusinessImage,
       BusinessLogo,
       maxStores,
@@ -58,7 +58,6 @@ exports.createAdmin = async (req, res) => {
   }
 };
 
-
 // ==============================
 // Create Expenditure Function
 // ==============================
@@ -69,7 +68,6 @@ exports.createUserExpenditure = async (
   category,
   transaction = null
 ) => {
-  console.log("adminId:::",adminId);
 
   return await Expenditure.create(
     {
@@ -117,7 +115,7 @@ exports.updateResetPassword = async (req, res) => {
     user.password = password;
     await user.save();
 
-    res.json({ success:true,message: 'PASSWORD updated successfully' });
+    res.json({ success: true, message: 'PASSWORD updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -126,7 +124,7 @@ exports.updateResetPassword = async (req, res) => {
 exports.renewUserAccount = async (req, res) => {
   try {
     const { id } = req.params;
-    const { startDate, expiryDate, planType,amount } = req.body;
+    const { startDate, expiryDate, planType, amount } = req.body;
 
     const currentUser = req.user;
 
@@ -162,7 +160,7 @@ exports.renewUserAccount = async (req, res) => {
           category: "Renewal User",
           description: "User account renewal",
           amount: parseFloat(amount),
-          ledgerType:"credit",
+          ledgerType: "credit",
           date: new Date(),
           verified: true
         }
@@ -183,7 +181,6 @@ exports.renewUserAccount = async (req, res) => {
     });
   }
 };
-
 
 exports.updateAdminAccount = async (req, res) => {
   try {
@@ -206,10 +203,15 @@ exports.updateAdminAccount = async (req, res) => {
       BusinessImage,
       BusinessLogo,
       permissions,
-      password
+      password,
+      officeAddress,
+      FSSAI_No,
+      GST_No,
+      CIN_No
+
     } = req.body;
 
-// ===============================
+    // ===============================
     // Basic Fields Update
     // ===============================
 
@@ -225,6 +227,10 @@ exports.updateAdminAccount = async (req, res) => {
 
     if (BusinessImage !== undefined) admin.BusinessImage = BusinessImage;
     if (BusinessLogo !== undefined) admin.BusinessLogo = BusinessLogo;
+    if (officeAddress !== undefined) admin.officeAddress = officeAddress;
+    if (FSSAI_No !== undefined) admin.FSSAI_No = FSSAI_No;
+    if (GST_No !== undefined) admin.GST_No = GST_No;
+    if (CIN_No !== undefined) admin.CIN_No = CIN_No;
 
 
     // ===== Update password (auto hashed by hook) =====
@@ -233,21 +239,32 @@ exports.updateAdminAccount = async (req, res) => {
     }
 
     // ===== Update permissions safely (merge existing + new) =====
-    if (permissions) {
+    if (permissions && typeof permissions === "object") {
+      let existingPermissions = {};
+
+      if (typeof admin.permissions === "string") {
+        try {
+          existingPermissions = JSON.parse(admin.permissions);
+        } catch (error) {
+          existingPermissions = {};
+        }
+      } else {
+        existingPermissions = admin.permissions || {};
+      }
+
       admin.permissions = {
-        ...admin.permissions,
-        ...permissions
+        ...existingPermissions,
+        ...permissions,
       };
     }
-
     await admin.save();
-// Remove password from response
-const updatedAdmin = admin.toJSON();
-delete updatedAdmin.password;
+    // Remove password from response
+    const updatedAdmin = admin.toJSON();
+    delete updatedAdmin.password;
 
     res.status(200).json({
       message: "Admin updated successfully",
-      admin:updatedAdmin
+      admin: updatedAdmin
     });
 
   } catch (error) {
@@ -259,7 +276,6 @@ delete updatedAdmin.password;
     res.status(500).json({ error: error.message });
   }
 };
-
 
 exports.deleteUser = async (req, res) => {
   try {
@@ -357,10 +373,15 @@ exports.updateStoreManager = async (req, res) => {
       BusinessImage,
       BusinessLogo,
       permissions,
-      password
+      password,
+      officeAddress,
+      FSSAI_No,
+      GST_No,
+      CIN_No
+
     } = req.body;
 
-// ===============================
+    // ===============================
     // Basic Fields Update
     // ===============================
 
@@ -377,7 +398,10 @@ exports.updateStoreManager = async (req, res) => {
     if (BusinessImage !== undefined) storeManager.BusinessImage = BusinessImage;
     if (BusinessLogo !== undefined) storeManager.BusinessLogo = BusinessLogo;
 
-
+    if (officeAddress !== undefined) storeManager.officeAddress = officeAddress;
+    if (FSSAI_No !== undefined) storeManager.FSSAI_No = FSSAI_No;
+    if (GST_No !== undefined) storeManager.GST_No = GST_No;
+    if (CIN_No !== undefined) storeManager.CIN_No = CIN_No;
 
     // ===== Update password (auto hashed by hook) =====
     if (password) {
@@ -385,12 +409,25 @@ exports.updateStoreManager = async (req, res) => {
     }
 
     // ===== Update permissions safely (merge existing + new) =====
-    if (permissions) {
+    if (permissions && typeof permissions === "object") {
+      let existingPermissions = {};
+
+      if (typeof storeManager.permissions === "string") {
+        try {
+          existingPermissions = JSON.parse(storeManager.permissions);
+        } catch (error) {
+          existingPermissions = {};
+        }
+      } else {
+        existingPermissions = storeManager.permissions || {};
+      }
+
       storeManager.permissions = {
-        ...storeManager.permissions,
-        ...permissions
+        ...existingPermissions,
+        ...permissions,
       };
     }
+
     await storeManager.save();
 
 
@@ -495,22 +532,13 @@ exports.getManagersByAdmin = async (req, res) => {
         'address',
         'phoneNumber',
         'email',
+        'managerId',
         'isActive'
       ],
       include: [
         {
           model: User,
           as: 'Manager',
-          attributes: [
-            'id',
-            'name',
-            'email',
-            'phoneNumber',
-            'isActive',
-            'permissions',
-            'expiryDate',
-            'createdBy'
-          ],
           required: false
         }
       ],
@@ -528,6 +556,11 @@ exports.getManagersByAdmin = async (req, res) => {
         isActive: store.Manager.isActive,
         permissions: store.Manager.permissions,
         expiryDate: store.Manager.expiryDate,
+        officeAddress: store.Manager.officeAddress,
+        managerId: store.managerId,
+        isMangerAssigned: Boolean(store.managerId),        FSSAI_No: store.Manager.FSSAI_No,
+        GST_No: store.Manager.GST_No,
+        CIN_No: store.Manager.CIN_No,
         createdBy: store.Manager.createdBy,
         storeId: store.id,
         storeName: store.name
@@ -542,6 +575,52 @@ exports.getManagersByAdmin = async (req, res) => {
     console.error(error);
     res.status(500).json({
       success: false,
+      error: error.message
+    });
+  }
+};
+
+exports.getNonAssignedManagers = async (req, res) => {
+  try {
+    // Get all assigned manager IDs from stores
+    const assignedStores = await Store.findAll({
+      attributes: ['managerId'],
+      where: {
+        managerId: {
+          [Op.ne]: null
+        }
+      }
+    });
+
+    // Extract manager IDs
+    const assignedManagerIds = assignedStores.map(
+      store => store.managerId
+    );
+
+    // Find store managers NOT assigned to any store
+    const unassignedManagers = await User.findAll({
+      where: {
+        role: 'store_manager',
+        id: {
+          [Op.notIn]: assignedManagerIds.length
+            ? assignedManagerIds
+            : [0]
+        }
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: unassignedManagers.length,
+      data: unassignedManagers
+    });
+
+  } catch (error) {
+    console.error('Error fetching unassigned managers:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch unassigned managers',
       error: error.message
     });
   }
@@ -662,14 +741,6 @@ exports.getUnassignedStoresByAdmin = async (req, res) => {
         adminId,
         managerId: null // 👈 ONLY unassigned stores
       },
-      attributes: [
-        'id',
-        'name',
-        'address',
-        'phoneNumber',
-        'email',
-        'isActive'
-      ],
       order: [['name', 'ASC']]
     });
 
@@ -788,6 +859,31 @@ exports.getAdminSummary = async (req, res) => {
         message: 'Admin not found'
       });
     }
+
+    res.json({
+      success: true,
+      data: admin
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+exports.getUserById = async (req, res) => {
+  try {
+    const userId = req.user.id; // ✅ from token
+
+    const admin = await User.findOne({
+      where: {
+        id: userId,
+        role: 'admin',
+        isActive: true
+      },
+    });
 
     res.json({
       success: true,

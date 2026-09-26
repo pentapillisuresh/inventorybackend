@@ -11,7 +11,10 @@ exports.createOutlet = async (req, res) => {
       address,
       contactPerson,
       phoneNumber,
-      creditLimit
+      creditLimit,
+      FSSAI_No,
+      GST_No,
+      CIN_No
     } = req.body;
 
     let finalManagerId = null;
@@ -70,8 +73,11 @@ exports.createOutlet = async (req, res) => {
       contactPerson,
       phoneNumber,
       creditLimit,
-      createdBy:req.user.id,
-      type: 'custom'
+      createdBy: req.user.id,
+      type: 'custom',
+      FSSAI_No,
+      GST_No,
+      CIN_No
     });
 
     res.status(201).json({
@@ -87,10 +93,9 @@ exports.createOutlet = async (req, res) => {
 // Get all outlets
 exports.getAllOutlets = async (req, res) => {
   try {
-    const { storeId, type, active, search } = req.query;
+    const { storeId, type, active, search } = req.params;
 
     const where = {};
-
     // --------------------
     // Basic filters
     // --------------------
@@ -210,7 +215,7 @@ exports.getOutletById = async (req, res) => {
 exports.updateOutlet = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, address, contactPerson, phoneNumber,creditLimit,currentCredit, isActive } = req.body;
+    const { name, address, contactPerson, phoneNumber, creditLimit, currentCredit, isActive, FSSAI_No, GST_No, CIN_No } = req.body;
 
     const outlet = await Outlet.findByPk(id, {
       include: [{ model: Store }]
@@ -240,8 +245,8 @@ exports.updateOutlet = async (req, res) => {
       });
 
       if (existingOutlet) {
-        return res.status(400).json({ 
-          error: 'Outlet with this name already exists in this store' 
+        return res.status(400).json({
+          error: 'Outlet with this name already exists in this store'
         });
       }
     }
@@ -252,8 +257,11 @@ exports.updateOutlet = async (req, res) => {
       contactPerson: contactPerson !== undefined ? contactPerson : outlet.contactPerson,
       phoneNumber: phoneNumber !== undefined ? phoneNumber : outlet.phoneNumber,
       creditLimit: creditLimit !== undefined ? creditLimit : outlet.creditLimit,
-      currentCredit: currentCredit !== undefined ? Number(currentCredit)+Number(outlet?.currentCredit) : outlet.currentCredit,
-      isActive: isActive !== undefined ? isActive : outlet.isActive
+      currentCredit: currentCredit !== undefined ? Number(currentCredit) + Number(outlet?.currentCredit) : outlet.currentCredit,
+      isActive: isActive !== undefined ? isActive : outlet.isActive,
+      FSSAI_No: FSSAI_No !== undefined ? FSSAI_No : outlet.FSSAI_No,
+      GST_No: GST_No !== undefined ? GST_No : outlet.GST_No,
+      CIN_No: CIN_No !== undefined ? CIN_No : outlet.CIN_No
     });
 
     res.json({
@@ -288,8 +296,8 @@ exports.deleteOutlet = async (req, res) => {
 
     // Check if outlet has invoices
     if (outlet.Invoices && outlet.Invoices.length > 0) {
-      return res.status(400).json({ 
-        error: 'Cannot delete outlet with existing invoices. Delete invoices first.' 
+      return res.status(400).json({
+        error: 'Cannot delete outlet with existing invoices. Delete invoices first.'
       });
     }
 
@@ -325,9 +333,9 @@ exports.getOutletInvoices = async (req, res) => {
     }
 
     const where = { outletId: id };
-    
+
     if (status) where.status = status;
-    
+
     if (startDate && endDate) {
       where.invoiceDate = {
         [Op.between]: [new Date(startDate), new Date(endDate)]
@@ -462,11 +470,11 @@ exports.getOutletStats = async (req, res) => {
       monthlySales,
       currentYearSales: currentYearSales || 0,
       lastYearSales: lastYearSales || 0,
-      growthPercentage: lastYearSales > 0 ? 
+      growthPercentage: lastYearSales > 0 ?
         ((currentYearSales - lastYearSales) / lastYearSales * 100).toFixed(2) : 0,
       topProducts,
       averageInvoiceValue: monthlySales.length > 0 ?
-        monthlySales.reduce((sum, month) => sum + month.dataValues.totalSales, 0) / 
+        monthlySales.reduce((sum, month) => sum + month.dataValues.totalSales, 0) /
         monthlySales.reduce((sum, month) => sum + month.dataValues.invoiceCount, 0) : 0
     };
 
@@ -486,7 +494,7 @@ exports.getOutletsByStore = async (req, res) => {
     const { type, active } = req.query;
 
     const where = { storeId };
-    
+
     if (type) where.type = type;
     if (active !== undefined) where.isActive = active === 'true';
 
@@ -565,7 +573,7 @@ exports.bulkUpdateOutlets = async (req, res) => {
     }
 
     // Update accessible outlets
-    const updatePromises = accessibleOutlets.map(outlet => 
+    const updatePromises = accessibleOutlets.map(outlet =>
       outlet.update(updates)
     );
 

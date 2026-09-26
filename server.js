@@ -35,7 +35,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 // app.options('/*', cors(corsOptions)); // ✅ FIXED
-
 /* ---------------- Middleware ---------------- */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -56,6 +55,7 @@ app.use('/api/inventory', require('./src/routes/inventory'));
 app.use('/api/invoice', require('./src/routes/invoice'));
 app.use('/api/reports', require('./src/routes/reports'));
 app.use('/api/upload', require('./src/routes/uploadImage'));
+// app.use('/api/wayBill', require('./src/routes/waybill'));
 
 /* ---------------- Error Handler ---------------- */
 app.use((err, req, res, next) => {

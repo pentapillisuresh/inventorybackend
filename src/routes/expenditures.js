@@ -10,7 +10,6 @@ const reportController = require('../controllers/reportController');
 // Create expenditure (Admin only with expenditure_management permission)
 router.post('/',
   authenticate,
-  authorize('admin'),
   upload.single('receiptImage'),
   uploadSingle('receiptImage'),
   [

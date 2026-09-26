@@ -14,6 +14,7 @@ const Outlet = require('./Outlet');
 const Ticket = require('./Ticket');
 const Expenditure = require('./Expenditure');
 const User = require('./User');
+// const WayBill = require('./WayBill');
 // Define associations
 
 // User associations
@@ -32,6 +33,9 @@ Product.belongsTo(User, { as: 'Admin', foreignKey: 'adminId' });
 
 User.hasMany(Product, { foreignKey: 'createdBy' });
 Product.belongsTo(User, { as: 'createdUser', foreignKey: 'createdBy' });
+
+User.hasMany(Invoice, { foreignKey: 'createdBy' });
+Invoice.belongsTo(User, { as: 'createdUser', foreignKey: 'createdBy' });
 
 User.hasMany(Invoice, { foreignKey: 'adminId' });
 Invoice.belongsTo(User, { as: 'Admin', foreignKey: 'adminId' });
@@ -112,6 +116,8 @@ InvoiceItem.belongsTo(Invoice, { foreignKey: 'invoiceId',as: 'invoice' });
 Outlet.hasMany(Invoice, { foreignKey: 'storeId' });
 Invoice.belongsTo(Outlet, { foreignKey: 'outletId' });
 
+// InvoiceItem.belongsTo(WayBill, {foreignKey: "batchId",targetKey: "name"});
+// WayBill.hasMany(InvoiceItem, {foreignKey: "batchId",sourceKey: "name"});
 // Sync database
 const syncDatabase = async () => {
   try {
@@ -137,5 +143,6 @@ module.exports = {
   Ticket,
   Expenditure,
   User,
+  // WayBill,
   syncDatabase
 };

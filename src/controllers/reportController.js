@@ -1489,7 +1489,6 @@ exports.getProfitLossReport = async (req, res) => {
 
 // Export reports
 exports.exportReport = async (req, res) => {
-  console.log("rrr::", reportType);
 
   try {
     const { reportType, format = 'excel', ...filters } = req.body;

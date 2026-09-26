@@ -9,6 +9,25 @@ function generateInvoiceNumber(type = 'INV') {
   return `${type}-${timestamp}-${random}`;
 }
 
+async function generateBatchNumber(type = 'BATH', userId) {
+  const now = new Date();
+
+  // Format: dd/mm/yy
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = String(now.getFullYear()).slice(-2);
+
+  const date = `${day}/${month}/${year}`;
+
+  const count = await Invoice.count({
+    where: {
+      createdBy: userId
+    }
+  });
+  return `${type}-${date}-${count + 1}`;
+}
+
+
 // Create invoice for store manager to outlet
 exports.createOutletInvoice = async (req, res) => {
   const t = await sequelize.transaction();
@@ -47,7 +66,7 @@ exports.createOutletInvoice = async (req, res) => {
       paymentMethod,
       totalAmount: paidAmount,
       status: 'pending',
-      createdBy:req.user.id
+      createdBy: req.user.id
     }, { transaction: t });
 
 
@@ -67,14 +86,16 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { storeId, outletId } = req.params;
-    const { items, paymentMethod, notes } = req.body;
+
+    const { items, paymentMethod, notes, creditAmount = 0 } = req.body;
+    const batchNumber = await generateBatchNumber('BATCH', req.user.id);
 
     // Generate invoice number
     const invoiceNumber = generateInvoiceNumber('SALE');
 
     // Check outlet belongs to store
     const outlet = await Outlet.findOne({
-      where: { id: outletId, storeId },
+      where: { id: outletId },
       transaction: t
     });
     if (!outlet) {
@@ -86,13 +107,14 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
     const invoice = await Invoice.create({
       invoiceNumber,
       storeId,
+      batchID: batchNumber,
       outletId,
       storeManagerId: req.user.id,
       type: 'outlet_sale',
       paymentMethod,
       totalAmount: 0,
       status: 'pending',
-      createdBy:req.user.id
+      createdBy: req.user.id
     }, { transaction: t });
 
     let totalAmount = 0;
@@ -100,13 +122,13 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
 
     // Process each item
     for (const item of items) {
-      const { productId, quantity, price, inventoryId } = item;
+      const { productId, quantity, price, inventoryId, boxName } = item;
 
+      console.log("storeId::", storeId);
       // Check product availability
       const inventory = await Inventory.findOne({
         where: {
           productId,
-          storeId,
           id: inventoryId,
           quantity: { [Op.gte]: quantity }
         },
@@ -120,25 +142,54 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
           error: `Insufficient stock for product ${productId}`
         });
       }
+      const product = await Product.findByPk(productId, { transaction: t });
+      if (!product) {
+        throw new Error(`Product ${productId} not found`);
+      }
 
+      // ❗ Check stock availability
+      if (product.quantity < quantity) {
+        throw new Error(`Insufficient stock for product ${product.name}`);
+      }
       const itemTotal = quantity * price;
       totalAmount += itemTotal;
+
+      const IGSTAmount = (product.IGST / 100) * itemTotal;
+      const SGSTAmount = (product.SGST / 100) * itemTotal;
+      const CGSTAmount = (product.CGST / 100) * itemTotal;
+
+      const netTotal = itemTotal + IGSTAmount + SGSTAmount + CGSTAmount;
+
 
       // Create invoice item
       const invoiceItem = await InvoiceItem.create({
         invoiceId: invoice.id,
+        batchId: batchNumber,
         productId,
         quantity,
         price,
+        boxName,
+        IGST: IGSTAmount,
+        CGST: CGSTAmount,
+        SGST: SGSTAmount,
+        netTotal,
         totalPrice: itemTotal,
         locationType: inventory.roomId ? 'room' : inventory.rackId ? 'rack' : 'freezer',
         locationId: inventory.roomId || inventory.rackId || inventory.freezerId,
-        createdBy:req.user.id
+        createdBy: req.user.id
       }, { transaction: t });
-
-      invoiceItems.push(invoiceItem);
-
-      // Reduce inventory
+      
+      const invoiceItemWithProduct = await InvoiceItem.findByPk(invoiceItem.id, {
+        include: [
+          {
+            model: Product,
+            as: 'Product' // use your association alias
+          }
+        ],
+        transaction: t
+      });
+      
+      invoiceItems.push(invoiceItemWithProduct);      // Reduce inventory
       inventory.quantity -= quantity;
       await inventory.save({ transaction: t });
 
@@ -164,8 +215,181 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
     invoice.status = 'completed';
     await invoice.save({ transaction: t });
 
-    await t.commit();
+    if (paymentMethod === 'credit' || paymentMethod === 'mixed') {
+      const outlet = await Outlet.findByPk(storeId, { transaction: t });
 
+      if (!outlet) {
+        throw new Error(`Store ${storeId} not found`);
+      }
+
+      if (paymentMethod === 'credit') {
+        outlet.currentCredit += creditAmount;
+        outlet.creditLimit -= creditAmount;
+        await outlet.save({ transaction: t });
+      }
+    }
+
+    // ✅ Commit transaction
+    await t.commit();
+    res.status(201).json({
+      message: 'Invoice created successfully',
+      invoice,
+      invoiceItems
+    });
+  } catch (error) {
+    await t.rollback();
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { storeId, outletId } = req.params;
+
+    const { items, paymentMethod, notes, creditAmount = 0 } = req.body;
+    const batchNumber = await generateBatchNumber('BATCH', req.user.id);
+
+    // Generate invoice number
+    const invoiceNumber = generateInvoiceNumber('SALE');
+
+    // Check outlet belongs to store
+    const outlet = await Outlet.findOne({
+      where: { id: outletId },
+      transaction: t
+    });
+    if (!outlet) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Outlet not found in this store' });
+    }
+
+    // Create invoice
+    const invoice = await Invoice.create({
+      invoiceNumber,
+      storeId,
+      batchID: batchNumber,
+      outletId,
+      storeManagerId: req.user.id,
+      type: 'outlet_sale',
+      paymentMethod,
+      totalAmount: 0,
+      status: 'pending',
+      createdBy: req.user.id
+    }, { transaction: t });
+
+    let totalAmount = 0;
+    const invoiceItems = [];
+
+    // Process each item
+    for (const item of items) {
+      const { productId, quantity, price, boxName } = item;
+
+      console.log("storeId::", storeId);
+      // Check product availability
+      const inventory = await Inventory.findOne({
+        where: {
+          productId,storeId,
+          quantity: { [Op.gte]: quantity }
+        },
+        include: [Product],
+        transaction: t
+      });
+
+      if (!inventory) {
+        await t.rollback();
+        return res.status(400).json({
+          error: `Insufficient stock for product ${productId}`
+        });
+      }
+      const product = await Product.findByPk(productId, { transaction: t });
+      if (!product) {
+        throw new Error(`Product ${productId} not found`);
+      }
+
+      // ❗ Check stock availability
+      if (product.quantity < quantity) {
+        throw new Error(`Insufficient stock for product ${product.name}`);
+      }
+      const itemTotal = quantity * price;
+      totalAmount += itemTotal;
+
+      const IGSTAmount = (product.IGST / 100) * itemTotal;
+      const SGSTAmount = (product.SGST / 100) * itemTotal;
+      const CGSTAmount = (product.CGST / 100) * itemTotal;
+
+      const netTotal = itemTotal + IGSTAmount + SGSTAmount + CGSTAmount;
+
+
+      // Create invoice item
+      const invoiceItem = await InvoiceItem.create({
+        invoiceId: invoice.id,
+        batchId: batchNumber,
+        productId,
+        quantity,
+        price,
+        boxName,
+        IGST: IGSTAmount,
+        CGST: CGSTAmount,
+        SGST: SGSTAmount,
+        netTotal,
+        totalPrice: itemTotal,
+        locationType: inventory.roomId ? 'room' : inventory.rackId ? 'rack' : 'freezer',
+        locationId: inventory.roomId || inventory.rackId || inventory.freezerId,
+        createdBy: req.user.id
+      }, { transaction: t });
+      
+      const invoiceItemWithProduct = await InvoiceItem.findByPk(invoiceItem.id, {
+        include: [
+          {
+            model: Product,
+            as: 'Product' // use your association alias
+          }
+        ],
+        transaction: t
+      });
+      
+      invoiceItems.push(invoiceItemWithProduct);      // Reduce inventory
+      inventory.quantity -= quantity;
+      await inventory.save({ transaction: t });
+
+      // Check threshold after reduction
+      if (inventory.quantity <= inventory.reorderLevel) {
+        // Create alert
+        console.log(`Low stock alert for product ${productId}`);
+      }
+    }
+
+    // Update invoice total
+    invoice.totalAmount = totalAmount;
+
+    // Handle payment
+    if (paymentMethod === 'credit') {
+      invoice.creditAmount = totalAmount;
+      invoice.paidAmount = 0;
+    } else if (paymentMethod === 'paid') {
+      invoice.creditAmount = 0;
+      invoice.paidAmount = totalAmount;
+    }
+
+    invoice.status = 'completed';
+    await invoice.save({ transaction: t });
+
+    if (paymentMethod === 'credit' || paymentMethod === 'mixed') {
+      const outlet = await Outlet.findByPk(storeId, { transaction: t });
+
+      if (!outlet) {
+        throw new Error(`Store ${storeId} not found`);
+      }
+
+      if (paymentMethod === 'credit') {
+        outlet.currentCredit += creditAmount;
+        outlet.creditLimit -= creditAmount;
+        await outlet.save({ transaction: t });
+      }
+    }
+
+    // ✅ Commit transaction
+    await t.commit();
     res.status(201).json({
       message: 'Invoice created successfully',
       invoice,
@@ -339,18 +563,26 @@ exports.getAllDistributedInvoicesByAdmin = async (req, res) => {
       distinct: true,
       col: 'id',
       include: [
-        { model: Store },
+        {
+          model: Store, as: 'Store',
+          include: [
+            {
+              model: User,
+              as: 'Manager',
+              attributes: ['id', 'name', 'FSSAI_No', 'GST_No'] // optional but useful
+            }
+          ]
+        },
         { model: Outlet },
-        { model: User, as: 'Admin', attributes: ['id', 'name', 'email'] },
-        { model: User, as: 'StoreManager', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'Admin' },
+        { model: User, as: 'StoreManager' },
         {
           model: InvoiceItem,
           as: 'items',
-          attributes: ['id', 'productId', 'quantity', 'price', 'totalPrice'],
           include: [
             {
               model: Product,
-              attributes: ['id', 'name', 'sku'] // optional but useful
+              attributes: ['id', 'name', 'sku', 'HSN_No', 'units', 'costPrice'] // optional but useful
             }
           ]
         }
@@ -560,7 +792,7 @@ exports.updateInvoiceStatus = async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { status, paymentDetails } = req.body;
+    const { status } = req.body;
 
     const invoice = await Invoice.findByPk(id, { transaction: t });
 
@@ -582,22 +814,10 @@ exports.updateInvoiceStatus = async (req, res) => {
         await store.save({ transaction: t });
       }
     } else {
-      invoice.status = status;
+      invoice.status = status === 'paid'?"completed":status;
     }
 
     await invoice.save({ transaction: t });
-
-    // Record payment if provided
-    if (paymentDetails) {
-      await sequelize.models.Payment.create({
-        invoiceId: invoice.id,
-        amount: paymentDetails.amount,
-        paymentMethod: paymentDetails.paymentMethod,
-        transactionId: paymentDetails.transactionId,
-        notes: paymentDetails.notes,
-        paidById: req.user.id
-      }, { transaction: t });
-    }
 
     await t.commit();
 

@@ -12,7 +12,7 @@ exports.createCategory = async (req, res) => {
       name,
       description,
       adminId: req.user.id,
-      createdBy:req.user.id,
+      createdBy: req.user.id,
     });
 
     res.status(201).json(category);
@@ -35,7 +35,12 @@ exports.createProduct = [
         price,
         quantity,
         costPrice,
-        thresholdQuantity
+        thresholdQuantity,
+        HSN_No,
+        units,
+        IGST,
+        SGST,
+        CGST
       } = req.body;
 
       // 🔥 Build payload dynamically
@@ -49,7 +54,12 @@ exports.createProduct = [
         costPrice: costPrice ? Number(costPrice) : null,
         thresholdQuantity: thresholdQuantity ? Number(thresholdQuantity) : 10,
         image: req.file ? req.file.path : null,
-        createdBy: req.user.id
+        createdBy: req.user.id,
+        HSN_No,
+        units,
+        IGST,
+        SGST,
+        CGST
       };
 
       // ✅ Add adminId only if role is admin
@@ -66,6 +76,25 @@ exports.createProduct = [
   }
 ];
 
+async function generateBatchNumber(type = 'BATH', userId) {
+  const now = new Date();
+
+  // Format: dd/mm/yy
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = String(now.getFullYear()).slice(-2);
+
+  const date = `${day}/${month}/${year}`;
+
+  const count = await Invoice.count({
+    where: {
+      createdBy: userId
+    }
+  });
+  return `${type}-${date}-${count + 1}`;
+}
+
+
 // Distribute products to store
 exports.distributeToStore = async (req, res) => {
   const t = await sequelize.transaction();
@@ -73,10 +102,9 @@ exports.distributeToStore = async (req, res) => {
   try {
     const { storeId } = req.params;
     const { items, paymentMethod, creditAmount = 0, paidAmount = 0 } = req.body;
-
     // Generate invoice number
     const invoiceNumber = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
+    const batchID = await generateBatchNumber("BATH", req.user.id)
     // Create invoice
     const invoice = await Invoice.create({
       invoiceNumber,
@@ -84,18 +112,19 @@ exports.distributeToStore = async (req, res) => {
       adminId: req.user.id,
       type: 'distribution',
       paymentMethod,
+      batchID: batchID,
       totalAmount: 0,
       creditAmount,
       paidAmount,
       status: 'pending',
-      createdBy:req.user.id
+      createdBy: req.user.id
     }, { transaction: t });
 
     let totalAmount = 0;
     const invoiceItems = [];
 
     for (const item of items) {
-      const { productId, quantity, price, roomId, locationType, locationId } = item;
+      const { productId, quantity, price, roomId, locationType, locationId, boxName } = item;
 
       // 🔍 Get product
       const product = await Product.findByPk(productId, { transaction: t });
@@ -111,16 +140,26 @@ exports.distributeToStore = async (req, res) => {
       const itemTotal = quantity * price;
       totalAmount += itemTotal;
 
+      const IGSTAmount = (product.IGST / 100) * itemTotal;
+      const SGSTAmount = (product.SGST / 100) * itemTotal;
+      const CGSTAmount = (product.CGST / 100) * itemTotal;
+
+      const netTotal = itemTotal + IGSTAmount + SGSTAmount + CGSTAmount;
+
       // 🧾 Create invoice item
       const invoiceItem = await InvoiceItem.create({
         invoiceId: invoice.id,
         productId,
         quantity,
         price,
+        batchId: batchID,
+        boxName,
         totalPrice: itemTotal,
+        IGSTAmount, SGSTAmount, CGSTAmount,
+        netPrice: netTotal,
         locationType,
         locationId,
-        createdBy:req.user.id
+        createdBy: req.user.id
       }, { transaction: t });
 
       invoiceItems.push(invoiceItem);
@@ -138,9 +177,9 @@ exports.distributeToStore = async (req, res) => {
           throw new Error(`Room ${roomId} not found`);
         }
 
-        if (room.currentOccupancy + quantity > room.capacity) {
-          throw new Error(`Room capacity exceeded for ${room.name}`);
-        }
+        // if (room.currentOccupancy + quantity > room.capacity) {
+        //   throw new Error(`Room capacity exceeded for ${room.name}`);
+        // }
 
         room.currentOccupancy += quantity;
         room.capacity -= quantity;
@@ -154,15 +193,14 @@ exports.distributeToStore = async (req, res) => {
         if (!rack) {
           throw new Error(`Rack ${locationId} not found`);
         }
-
-        if (rack.currentOccupancy + quantity > rack.capacity) {
-          throw new Error(`Rack capacity exceeded for ${rack.name}`);
-        }
+        // if (rack.currentOccupancy + quantity > rack.capacity) {
+        //   throw new Error(`Rack capacity exceeded for ${rack.name}`);
+        // }
 
         rack.currentOccupancy += quantity;
         rack.capacity -= quantity;
         await rack.save({ transaction: t });
-      }else{
+      } else {
         const freezer = await Freezer.findByPk(locationId, { transaction: t });
 
         if (!freezer) {
@@ -289,12 +327,15 @@ exports.getProductsByCategory = async (req, res) => {
 exports.getAllProducts = async (req, res) => {
   try {
     const { categoryId, lowStock, search, page = 1, limit = 20 } = req.query;
-    const offset = (page - 1) * limit;
 
     const where = {};
+
+    const pageNumber = parseInt(page) || 1;
+    const limitNumber = parseInt(limit) || 20;
+    const offset = (pageNumber - 1) * limitNumber;
     
     if (categoryId) where.categoryId = categoryId;
-    
+
     if (search) {
       where[Op.or] = [
         { name: { [Op.like]: `%${search}%` } },
@@ -325,10 +366,13 @@ exports.getAllProducts = async (req, res) => {
     // Filter for low stock if requested
     if (lowStock === 'true') {
       const lowStockProducts = products.filter(product => {
-        const totalInventory = product.Inventories.reduce((sum, inv) => sum + inv.quantity, 0);
+        const totalInventory = (product.Inventories || []).reduce(
+          (sum, inv) => sum + inv.quantity,
+          0
+        );
         return totalInventory <= product.thresholdQuantity;
       });
-      
+
       return res.json({
         total: lowStockProducts.length,
         totalPages: 1,
@@ -339,8 +383,8 @@ exports.getAllProducts = async (req, res) => {
 
     res.json({
       total: count,
-      totalPages: Math.ceil(count / limit),
-      currentPage: parseInt(page),
+      currentPage: pageNumber,
+      totalPages: Math.ceil(count / limitNumber),
       products
     });
   } catch (error) {
@@ -377,7 +421,7 @@ exports.getProductsUnified = async (req, res) => {
         include: [
           {
             model: Product,
-            
+
             include: ["Category"]
           },
           { model: Store },
@@ -389,7 +433,7 @@ exports.getProductsUnified = async (req, res) => {
       });
 
       return res.json({
-        success:true,
+        success: true,
         products: inventory
       });
     }
@@ -401,7 +445,7 @@ exports.getProductsUnified = async (req, res) => {
      */
     if (requestFrom === "independentManager") {
 
-      const where = {createdBy:req.user.id};
+      const where = { createdBy: req.user.id };
 
       if (categoryId) where.categoryId = categoryId;
 
@@ -418,7 +462,7 @@ exports.getProductsUnified = async (req, res) => {
       });
 
       return res.json({
-        success:true,
+        success: true,
         products: products
       });
     }
@@ -520,7 +564,7 @@ exports.getProductCounts = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, sku, description,quantity, categoryId, price, costPrice, thresholdQuantity, isActive } = req.body;
+    const { name, sku, description, quantity, categoryId, price, costPrice, thresholdQuantity, isActive, HSN_No, units, IGST, SGST, CGST } = req.body;
     const product = await Product.findByPk(id);
 
     if (!product) {
@@ -541,6 +585,11 @@ exports.updateProduct = async (req, res) => {
     if (quantity !== undefined) updates.quantity = parseFloat(quantity);
     if (costPrice !== undefined) updates.costPrice = costPrice ? parseFloat(costPrice) : null;
     if (thresholdQuantity !== undefined) updates.thresholdQuantity = parseInt(thresholdQuantity);
+    if (HSN_No !== undefined) updates.HSN_No = parseInt(HSN_No);
+    if (units !== undefined) updates.units = parseInt(units);
+    if (SGST !== undefined) updates.SGST = parseInt(SGST);
+    if (IGST !== undefined) updates.IGST = parseInt(IGST);
+    if (CGST !== undefined) updates.CGST = parseInt(CGST);
     if (isActive !== undefined) updates.isActive = isActive;
 
     await product.update(updates);
@@ -557,7 +606,7 @@ exports.updateProduct = async (req, res) => {
 // Delete product
 exports.deleteProduct = async (req, res) => {
   const t = await sequelize.transaction();
-  
+
   try {
     const { id } = req.params;
 
@@ -580,8 +629,8 @@ exports.deleteProduct = async (req, res) => {
     // Check if product has inventory
     if (product.Inventories && product.Inventories.length > 0) {
       await t.rollback();
-      return res.status(400).json({ 
-        error: 'Cannot delete product with existing inventory. Remove inventory first.' 
+      return res.status(400).json({
+        error: 'Cannot delete product with existing inventory. Remove inventory first.'
       });
     }
 
@@ -608,20 +657,20 @@ exports.bulkUploadProducts = [
 
       // Check file type
       const fileExtension = req.file.originalname.split('.').pop().toLowerCase();
-      
+
       if (!['csv', 'xlsx', 'xls'].includes(fileExtension)) {
         return res.status(400).json({ error: 'Only CSV and Excel files are allowed' });
       }
 
       // Process the file based on type
       let products = [];
-      
+
       if (fileExtension === 'csv') {
         // Parse CSV
         const csv = require('csv-parser');
         const fs = require('fs');
         const results = [];
-        
+
         await new Promise((resolve, reject) => {
           fs.createReadStream(req.file.path)
             .pipe(csv())
@@ -629,7 +678,7 @@ exports.bulkUploadProducts = [
             .on('end', resolve)
             .on('error', reject);
         });
-        
+
         products = results.map(row => ({
           name: row.name,
           sku: row.sku || `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -638,7 +687,12 @@ exports.bulkUploadProducts = [
           price: parseFloat(row.price),
           costPrice: row.costPrice ? parseFloat(row.costPrice) : null,
           thresholdQuantity: parseInt(row.thresholdQuantity) || 10,
-          adminId: req.user.id
+          adminId: req.user.id,
+          HSN_No: row.HSN_No,
+          units: row.units,
+          IGST: row.IGST,
+          SGST: row.SGST,
+          CGST: row.CGST
         }));
       } else {
         // Parse Excel
@@ -646,7 +700,7 @@ exports.bulkUploadProducts = [
         const workbook = XLSX.readFile(req.file.path);
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json(worksheet);
-        
+
         products = data.map(row => ({
           name: row.Name || row.name,
           sku: row.SKU || row.sku || `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -655,7 +709,13 @@ exports.bulkUploadProducts = [
           price: parseFloat(row.Price || row.price),
           costPrice: row.CostPrice || row.costPrice ? parseFloat(row.CostPrice || row.costPrice) : null,
           thresholdQuantity: parseInt(row.ThresholdQuantity || row.thresholdQuantity) || 10,
-          adminId: req.user.id
+          adminId: req.user.id,
+          HSN_No: row.HSN_No,
+          units: row.units,
+          IGST: row.IGST,
+          SGST: row.SGST,
+          CGST: row.CGST
+
         }));
       }
 
@@ -673,9 +733,9 @@ exports.bulkUploadProducts = [
 
           // Check if category exists and belongs to admin
           const category = await Category.findOne({
-            where: { 
+            where: {
               id: product.categoryId,
-              adminId: req.user.id 
+              adminId: req.user.id
             }
           });
 
@@ -701,9 +761,9 @@ exports.bulkUploadProducts = [
       }
 
       if (validProducts.length === 0) {
-        return res.status(400).json({ 
-          error: 'No valid products found', 
-          errors 
+        return res.status(400).json({
+          error: 'No valid products found',
+          errors
         });
       }
 
@@ -715,7 +775,7 @@ exports.bulkUploadProducts = [
 
       // Clean up uploaded file
       const fs = require('fs').promises;
-      await fs.unlink(req.file.path).catch(() => {});
+      await fs.unlink(req.file.path).catch(() => { });
 
       res.status(201).json({
         message: `Successfully created ${createdProducts.length} products`,
@@ -763,7 +823,7 @@ exports.getLowThresholdProducts = async (req, res) => {
     const productsWithSummary = lowThresholdProducts.map(product => {
       const inventorySummary = product.Inventories.reduce((summary, inv) => {
         summary.totalQuantity += inv.quantity;
-        summary.lowStockStores = inv.quantity <= product.thresholdQuantity ? 
+        summary.lowStockStores = inv.quantity <= product.thresholdQuantity ?
           (summary.lowStockStores || 0) + 1 : summary.lowStockStores || 0;
         return summary;
       }, { totalQuantity: 0, lowStockStores: 0 });
