@@ -830,3 +830,60 @@ exports.updateInvoiceStatus = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.deleteInvoice = async (req, res) => {
+  const t = await sequelize.transaction();
+
+  try {
+    const { id } = req.params;
+
+    // Find invoice
+    const invoice = await Invoice.findByPk(id, {
+      transaction: t,
+    });
+
+    if (!invoice) {
+      await t.rollback();
+
+      return res.status(404).json({
+        success: false,
+        message: 'Invoice not found',
+      });
+    }
+
+    // Delete invoice items
+    await InvoiceItem.destroy({
+      where: {
+        invoiceId: id,
+      },
+      transaction: t,
+    });
+
+    // Delete invoice
+    await invoice.destroy({
+      transaction: t,
+    });
+
+    // Commit transaction
+    await t.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Invoice deleted successfully',
+      invoice,
+    });
+  } catch (error) {
+    // Rollback only if transaction is still active
+    if (!t.finished) {
+      await t.rollback();
+    }
+
+    console.error('Delete invoice error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete invoice',
+      error: error.message,
+    });
+  }
+};

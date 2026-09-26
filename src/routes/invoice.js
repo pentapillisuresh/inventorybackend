@@ -60,5 +60,10 @@ router.put('/:id',
   invoiceController.updateInvoiceStatus
 );
 
+router.delete('/:id',
+  authenticate,
+  invoiceController.deleteInvoice
+);
+
 
 module.exports = router;

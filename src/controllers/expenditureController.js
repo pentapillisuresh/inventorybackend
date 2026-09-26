@@ -247,21 +247,6 @@ exports.deleteExpenditure = async (req, res) => {
     if (!expenditure) {
       return res.status(404).json({ error: 'Expenditure not found' });
     }
-
-    // Only admin who created it can delete
-    if (expenditure.adminId !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    // Delete receipt file
-    if (expenditure.receiptImage) {
-      try {
-        await fs.unlink(expenditure.receiptImage);
-      } catch (error) {
-        console.error('Error deleting receipt:', error);
-      }
-    }
-
     await expenditure.destroy();
 
     res.json({

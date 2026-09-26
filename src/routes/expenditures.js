@@ -41,7 +41,6 @@ router.get('/incomes/:adminId',
 // Update expenditure (Admin only)
 router.put('/:id',
   authenticate,
-  authorize('admin'),
   upload.single('receiptImage'),
   uploadSingle('receiptImage'),
   expenditureController.updateExpenditure
@@ -50,7 +49,6 @@ router.put('/:id',
 // Delete expenditure (Admin only)
 router.delete('/:id',
   authenticate,
-  authorize('admin'),
   expenditureController.deleteExpenditure
 );
 
