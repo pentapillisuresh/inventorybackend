@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const { syncDatabase } = require('./src/models');
+const { syncDatabase,User } = require('./src/models');
 const sequelize = require('./src/config/database');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 
@@ -55,7 +56,10 @@ app.use('/api/inventory', require('./src/routes/inventory'));
 app.use('/api/invoice', require('./src/routes/invoice'));
 app.use('/api/reports', require('./src/routes/reports'));
 app.use('/api/upload', require('./src/routes/uploadImage'));
-// app.use('/api/wayBill', require('./src/routes/waybill'));
+app.use('/api/outlet-products', require('./src/routes/outletProduct'));
+app.use('/api/wayBill', require('./src/routes/waybill'));
+app.use('/api/sales', require('./src/routes/sale'));
+app.use('/api/dashboard', require('./src/routes/dashboards'));
 
 /* ---------------- Error Handler ---------------- */
 app.use((err, req, res, next) => {
@@ -80,7 +84,7 @@ app.use((req, res) => {
 });
 /* ---------------- Super Admin Seed ---------------- */
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 /* ---------------- Start Server ---------------- */
 syncDatabase()
@@ -99,8 +103,6 @@ syncDatabase()
 /* ---------------- Seeder ---------------- */
 async function createInitialSuperAdmin() {
   try {
-    const { User } = require('./src/models');
-    const bcrypt = require('bcryptjs');
 
     const superAdminExists = await User.findOne({
       where: { email: 'superadmin@gmail.com' }
@@ -127,7 +129,7 @@ async function createInitialSuperAdmin() {
         isActive: true
       });
 
-      console.log('✅ Initial superadmin created');
+      console.log('✅ Initial super admin created');
     }
   } catch (error) {
     console.error('❌ Error creating initial superadmin:', error);

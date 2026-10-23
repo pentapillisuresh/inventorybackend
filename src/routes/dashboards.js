@@ -27,5 +27,6 @@ router.post('/store_manager',
   dashboardController.storeManager
 );
 
+router.get('/home/:outletId', dashboardController.getHomeDashboard);
 
 module.exports = router;

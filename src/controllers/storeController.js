@@ -32,8 +32,10 @@ exports.createStore = async (req, res) => {
       type: 'dummy',
       storeId: store.id,
       address,
+      email,
       CIN_No,
       GST_No,
+      password:'123456',
       FSSAI_No,
       createdBy:req.user.id,
     });
@@ -109,13 +111,13 @@ exports.createFreezer = async (req, res) => {
 exports.createOutlet = async (req, res) => {
   try {
     const { storeId } = req.params;
-    const { name, address, contactPerson, phoneNumber,CIN_No,GST_No,FSSAI_No} = req.body;
+    const { name, address, contactPerson, phoneNumber,CIN_No,GST_No,FSSAI_No,email,password} = req.body;
 
     const outlet = await Outlet.create({
       name,
       type: 'custom',
       storeId,
-      address,
+      address,email,password,
       contactPerson,
       phoneNumber,
       CIN_No,
@@ -820,7 +822,8 @@ exports.getWaybill = async (req, res) => {
                 'id',
                 'name',
                 'address',
-                'phoneNumber'
+                'phoneNumber',
+                'GST_No'
               ]
             },
     
@@ -831,7 +834,8 @@ exports.getWaybill = async (req, res) => {
                 'id',
                 'name',
                 'address',
-                'phoneNumber'
+                'phoneNumber',
+                'GST_No'
               ]
             },
     
@@ -843,7 +847,8 @@ exports.getWaybill = async (req, res) => {
                 'name',
                 'email',
                 'officeAddress',
-                'phoneNumber'
+                'phoneNumber',
+                'GST_No'
               ]
             }
           ]

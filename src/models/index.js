@@ -11,11 +11,14 @@ const Inventory = require('./Inventory');
 const Invoice = require('./Invoice');
 const InvoiceItem = require('./InvoiceItem');
 const Outlet = require('./Outlet');
+const OutletProduct = require('./OutletProduct');
 const Ticket = require('./Ticket');
 const Expenditure = require('./Expenditure');
 const User = require('./User');
-// const WayBill = require('./WayBill');
-// Define associations
+const WayBill = require('./WayBill');
+const Sale = require('./Sale');
+const SaleItem = require('./SaleItem');
+const OutletExpenditure = require('./OutletExpenditure');
 
 // User associations
 User.hasMany(User, { as: 'CreatedUsers', foreignKey: 'createdBy' });
@@ -54,6 +57,12 @@ Expenditure.belongsTo(User, { as: 'Admin', foreignKey: 'adminId' });
 
 User.hasMany(Expenditure, { foreignKey: 'createdBy' });
 Expenditure.belongsTo(User, { as: 'createdUser', foreignKey: 'createdBy' });
+
+Outlet.hasMany(Expenditure, { foreignKey: 'outletId' });
+Expenditure.belongsTo(Outlet, { as: 'Outlet', foreignKey: 'outletId' });
+
+Outlet.hasMany(Expenditure, { foreignKey: 'createdBy' });
+Expenditure.belongsTo(Outlet, { as: 'createdByOutlet', foreignKey: 'createdBy' });
 
 // Store associations
 Store.hasMany(Room, { foreignKey: 'storeId' });
@@ -113,11 +122,95 @@ Ticket.belongsTo(Product, { foreignKey: 'productId' });
 Invoice.hasMany(InvoiceItem, { foreignKey: 'invoiceId',as: 'items' });
 InvoiceItem.belongsTo(Invoice, { foreignKey: 'invoiceId',as: 'invoice' });
 
-Outlet.hasMany(Invoice, { foreignKey: 'storeId' });
-Invoice.belongsTo(Outlet, { foreignKey: 'outletId' });
+Outlet.hasMany(Invoice, {
+  foreignKey: 'outletId',
+  as: 'invoices'
+});
 
-// InvoiceItem.belongsTo(WayBill, {foreignKey: "batchId",targetKey: "name"});
-// WayBill.hasMany(InvoiceItem, {foreignKey: "batchId",sourceKey: "name"});
+Invoice.belongsTo(Outlet, {
+  foreignKey: 'outletId',
+  as: 'outlet'
+});
+
+// Register associations before syncing
+Outlet.hasMany(OutletProduct, {
+  foreignKey: 'outletId',
+  as: 'products'
+});
+
+OutletProduct.belongsTo(Outlet, {
+  foreignKey: 'outletId',
+  as: 'outlet'
+});
+
+InvoiceItem.belongsTo(WayBill, {foreignKey: "batchId"});
+WayBill.hasMany(InvoiceItem, {foreignKey: "batchId"});
+
+// Sale <-> SaleItem
+Sale.hasMany(SaleItem, {
+  foreignKey: 'saleId',
+  as: 'items',
+  onDelete: 'CASCADE'
+});
+SaleItem.belongsTo(Sale, {
+  foreignKey: 'saleId',
+  as: 'sale'
+});
+
+// SaleItem <-> OutletProduct
+SaleItem.belongsTo(OutletProduct, {
+  foreignKey: 'outletProductId',
+  as: 'product'
+});
+OutletProduct.hasMany(SaleItem, {
+  foreignKey: 'outletProductId',
+  as: 'saleItems'
+});
+Sale.belongsTo(Outlet, {
+  foreignKey: 'outletId',
+});
+Outlet.hasMany(Sale, {
+  foreignKey: 'approvedBy',
+  as: 'approver'
+});
+
+Sale.belongsTo(Outlet, {
+  foreignKey: 'approvedBy',
+  as: 'approver',
+});
+
+Sale.belongsTo(Outlet, {
+  foreignKey: 'createdBy',
+  as: 'creator',
+});
+
+Outlet.hasMany(Sale, {
+  foreignKey: 'createdBy',
+  as: 'creator'
+});
+
+// Outlet <-> OutletExpenditure
+Outlet.hasMany(OutletExpenditure, {
+  foreignKey: 'outletId',
+  as: 'expenditures'
+});
+
+OutletExpenditure.belongsTo(Outlet, {
+  foreignKey: 'outletId',
+  as: 'outlet'
+});
+
+// Outlet creator
+Outlet.hasMany(OutletExpenditure, {
+  foreignKey: 'createdBy',
+  as: 'createdOutletExpenditures'
+});
+
+OutletExpenditure.belongsTo(Outlet, {
+  foreignKey: 'createdBy',
+  as: 'createdByOutlet'
+});
+
 // Sync database
 const syncDatabase = async () => {
   try {
@@ -140,9 +233,13 @@ module.exports = {
   Invoice,
   InvoiceItem,
   Outlet,
+  OutletProduct,
   Ticket,
   Expenditure,
   User,
-  // WayBill,
+  Sale,
+  OutletExpenditure,
+  SaleItem,
+  WayBill,
   syncDatabase
 };

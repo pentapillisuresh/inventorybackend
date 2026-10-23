@@ -60,7 +60,6 @@ router.delete('/:id',
 // Verify expenditure (SuperAdmin only)
 router.patch('/:id/verify',
   authenticate,
-  authorize('superadmin'),
   expenditureController.verifyExpenditure
 );
 

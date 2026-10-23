@@ -1,5 +1,7 @@
+
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const bcrypt = require('bcryptjs');
 
 const Outlet = sequelize.define('Outlet', {
   id: {
@@ -14,6 +16,10 @@ const Outlet = sequelize.define('Outlet', {
   type: {
     type: DataTypes.ENUM('dummy', 'custom'),
     defaultValue: 'custom'
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false
   },
   FSSAI_No: {
     type: DataTypes.STRING,
@@ -49,6 +55,13 @@ const Outlet = sequelize.define('Outlet', {
   contactPerson: {
     type: DataTypes.STRING
   },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    validate: {
+      isEmail: true
+    }
+  },
   phoneNumber: {
     type: DataTypes.STRING
   },
@@ -68,10 +81,35 @@ const Outlet = sequelize.define('Outlet', {
     },
     allowNull: true
   },
+  permissions: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: {
+      create_products: false,
+      create_expanditure: false
+    }
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   }
+}, {
+  hooks: {
+    beforeCreate: async (outlet) => {
+      if (outlet.password) {
+        outlet.password = await bcrypt.hash(outlet.password, 10);
+      }
+    },
+    beforeUpdate: async (outlet) => {
+      if (outlet.changed('password')) {
+        outlet.password = await bcrypt.hash(outlet.password, 10);
+      }
+    }
+  }
 });
+
+Outlet.prototype.comparePassword = async function(password) {
+  return bcrypt.compare(password, this.password);
+};
 
 module.exports = Outlet;
