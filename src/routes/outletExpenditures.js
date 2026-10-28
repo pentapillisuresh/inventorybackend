@@ -18,13 +18,13 @@ router.post('/',
     body('amount').isFloat({ min: 0.01 }).withMessage('Valid amount is required'),
     body('date').optional().isISO8601().withMessage('Valid date is required')
   ],
-  outletExpenditureController.createExpenditure
+  outletExpenditureController.createOutletExpenditure
 );
 
 // Get all expenditures
 router.get('/',
   authenticate,
-  outletExpenditureController.getAllExpenditures
+  outletExpenditureController.getAllOutletExpenditures
 );
 
 router.get('/getByOutletUser',
@@ -35,7 +35,7 @@ router.get('/getByOutletUser',
 // Get expenditure by ID
 router.get('/:id',
   authenticate,
-  outletExpenditureController.getExpenditureById
+  outletExpenditureController.getOutletExpenditureById
 );
 
 router.get('/incomes/:outletId',
@@ -48,7 +48,7 @@ router.put('/:id',
   authenticate,
   upload.single('receiptImage'),
   uploadSingle('receiptImage'),
-  outletExpenditureController.updateExpenditure
+  outletExpenditureController.updateOutletExpenditure
 );
 
 // Delete expenditure (Admin only)
@@ -72,7 +72,7 @@ router.get('/summary/dashboard',
 // Export expenditures
 router.get('/export/excel',
   authenticate,
-  outletExpenditureController.exportExpendituresToExcel
+  outletExpenditureController.exportOutletExpendituresToExcel
 );
 
 // In src/routes/reports.js - Add expenditure report route

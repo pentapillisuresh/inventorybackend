@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const Product = sequelize.define('OutletProduct', {
+const OutletProduct = sequelize.define('OutletProduct', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -27,6 +27,14 @@ const Product = sequelize.define('OutletProduct', {
     allowNull: false
   },
   quantity: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  reservedStock: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  liveStock: {
     type: DataTypes.INTEGER,
     defaultValue: 0
   },
@@ -69,6 +77,10 @@ const Product = sequelize.define('OutletProduct', {
     type: DataTypes.INTEGER,
     allowNull: true
   },
+  comeFromInventory: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
     createdBy: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -80,4 +92,4 @@ const Product = sequelize.define('OutletProduct', {
   }
 });
 
-module.exports = Product;
+module.exports = OutletProduct;

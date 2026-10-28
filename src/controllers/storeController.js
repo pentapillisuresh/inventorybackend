@@ -368,7 +368,7 @@ exports.getStoreById = async (req, res) => {
       where: { storeId },
       include: [
         { model: Store },
-        { model: Outlet },
+        { model: Outlet,as: 'outlet' },
         { model: User, as: 'Admin', attributes: ['id', 'name', 'email'] },
         { model: User, as: 'StoreManager', attributes: ['id', 'name', 'email'] }
       ],
@@ -829,7 +829,7 @@ exports.getWaybill = async (req, res) => {
     
             {
               model: Outlet,
-              as: 'Outlet',
+              as: 'outlet',
               attributes: [
                 'id',
                 'name',

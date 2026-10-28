@@ -95,7 +95,6 @@ async function generateBatchNumber(type = 'BATH', userId) {
 }
 
 
-// Distribute products to store
 exports.distributeToStore = async (req, res) => {
   const t = await sequelize.transaction();
 
@@ -586,7 +585,7 @@ exports.updateProduct = async (req, res) => {
     if (costPrice !== undefined) updates.costPrice = costPrice ? parseFloat(costPrice) : null;
     if (thresholdQuantity !== undefined) updates.thresholdQuantity = parseInt(thresholdQuantity);
     if (HSN_No !== undefined) updates.HSN_No = parseInt(HSN_No);
-    if (units !== undefined) updates.units = parseInt(units);
+    if (units !== undefined) updates.units = units;
     if (SGST !== undefined) updates.SGST = parseInt(SGST);
     if (IGST !== undefined) updates.IGST = parseInt(IGST);
     if (CGST !== undefined) updates.CGST = parseInt(CGST);

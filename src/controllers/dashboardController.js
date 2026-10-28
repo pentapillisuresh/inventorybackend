@@ -100,8 +100,8 @@ exports.storeManager = async (req, res) => {
 
 exports.getHomeDashboard = async (req, res) => {
   try {
-    // The frontend will pass the outletId from its secure storage
-    const { outletId } = req.params;
+    // Support both /home/:outletId and /home?outletId=3
+    const outletId = req.params.outletId || req.query.outletId;
 
     if (!outletId) {
       return res.status(400).json({
@@ -145,34 +145,34 @@ exports.getHomeDashboard = async (req, res) => {
     const getProductStats = async (type) => {
       const baseWhere = { outletId, productType: type, isActive: true };
 
-      const [totalItems, liveStock, lowStock, outOfStock, inStock] = await Promise.all([
-        // Total active items
+      const [totalItems, liveStockCount, lowStock, outOfStock, inStock] = await Promise.all([
+        // Total active items of this type
         OutletProduct.count({ where: baseWhere }),
 
-        // Live stock (has quantity > 0)
-        OutletProduct.count({ where: { ...baseWhere, quantity: { [Op.gt]: 0 } } }),
+        // Live stock count (has liveStock > 0)
+        OutletProduct.count({ where: { ...baseWhere, liveStock: { [Op.gt]: 0 } } }),
 
-        // Low stock (quantity > 0 but <= threshold)
+        // Low stock (liveStock > 0 but <= thresholdQuantity)
         OutletProduct.count({
           where: {
             ...baseWhere,
-            quantity: { [Op.gt]: 0, [Op.lte]: col('thresholdQuantity') }
+            liveStock: { [Op.gt]: 0, [Op.lte]: col('thresholdQuantity') }
           }
         }),
 
-        // Out of stock (quantity == 0)
-        OutletProduct.count({ where: { ...baseWhere, quantity: 0 } }),
+        // Out of stock (liveStock == 0)
+        OutletProduct.count({ where: { ...baseWhere, liveStock: 0 } }),
 
-        // In stock (quantity > threshold)
+        // In stock (liveStock > thresholdQuantity)
         OutletProduct.count({
           where: {
             ...baseWhere,
-            quantity: { [Op.gt]: col('thresholdQuantity') }
+            liveStock: { [Op.gt]: col('thresholdQuantity') }
           }
         })
       ]);
 
-      return { totalItems, liveStock, lowStock, outOfStock, inStock };
+      return { totalItems, liveStockCount, lowStock, outOfStock, inStock };
     };
 
     const inventoryStats = await getProductStats('inventory');
@@ -191,21 +191,21 @@ exports.getHomeDashboard = async (req, res) => {
       },
       order: [['updatedAt', 'DESC']], // Most recently updated first
       limit: 5, // Show top 5 in the preview
-      attributes: ['id', 'name', 'categoryName', 'quantity', 'units', 'thresholdQuantity', 'productType']
+      attributes: ['id', 'name', 'categoryName', 'liveStock', 'units', 'thresholdQuantity', 'productType']
     });
 
     // Format recent items to match the UI (e.g., "In Stock", "Low Stock")
     const recentItems = recentItemsRaw.map(item => {
       let status = 'In Stock';
-      if (item.quantity === 0) status = 'Out of Stock';
-      else if (item.quantity <= item.thresholdQuantity) status = 'Low Stock';
+      if (item.liveStock === 0) status = 'Out of Stock';
+      else if (item.liveStock <= item.thresholdQuantity) status = 'Low Stock';
 
       return {
         id: item.id,
         name: item.name,
         category: item.productType === 'raw_material' ? 'Raw Material' : 'Food', // Or map via categoryName if you have a Category table
         units: item.units || 'Piece',
-        liveQty: item.quantity,
+        liveQty: item.liveStock, // Using the new liveStock column
         status: status
       };
     });
@@ -224,7 +224,7 @@ exports.getHomeDashboard = async (req, res) => {
         sales,
         inventory: {
           totalItems: inventoryStats.totalItems,
-          liveStock: inventoryStats.liveStock,
+          liveStock: inventoryStats.liveStockCount,
           lowStock: inventoryStats.lowStock,
           // For the Doughnut Chart
           chart: {
@@ -236,7 +236,7 @@ exports.getHomeDashboard = async (req, res) => {
         },
         rawMaterials: {
           totalItems: rawMaterialStats.totalItems,
-          liveStock: rawMaterialStats.liveStock,
+          liveStock: rawMaterialStats.liveStockCount,
           lowStock: rawMaterialStats.lowStock
         },
         recentItems,

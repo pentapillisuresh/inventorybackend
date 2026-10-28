@@ -1,4 +1,4 @@
-const { Invoice, InvoiceItem, Product, Store, Outlet, User, sequelize, Inventory } = require('../models');
+const { Invoice, InvoiceItem, Product, Store, Outlet, User, sequelize, Inventory, OutletProduct } = require('../models');
 const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
 
@@ -178,7 +178,7 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
         locationId: inventory.roomId || inventory.rackId || inventory.freezerId,
         createdBy: req.user.id
       }, { transaction: t });
-      
+
       const invoiceItemWithProduct = await InvoiceItem.findByPk(invoiceItem.id, {
         include: [
           {
@@ -188,7 +188,7 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
         ],
         transaction: t
       });
-      
+
       invoiceItems.push(invoiceItemWithProduct);      // Reduce inventory
       inventory.quantity -= quantity;
       await inventory.save({ transaction: t });
@@ -242,11 +242,11 @@ exports.createOutletInvoiceWithItem = async (req, res) => {
   }
 };
 
+
 exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { storeId, outletId } = req.params;
-
     const { items, paymentMethod, notes, creditAmount = 0 } = req.body;
     const batchNumber = await generateBatchNumber('BATCH', req.user.id);
 
@@ -284,12 +284,11 @@ exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
     for (const item of items) {
       const { productId, quantity, price, boxName } = item;
 
-      console.log("storeId::", storeId);
-      // Check product availability
+      // Check product availability in store inventory
       const inventory = await Inventory.findOne({
         where: {
-          productId,storeId,
-          quantity: { [Op.gte]: quantity }
+          productId, storeId,
+          quantity: { [Op.gte]: Number(quantity) }
         },
         include: [Product],
         transaction: t
@@ -301,6 +300,7 @@ exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
           error: `Insufficient stock for product ${productId}`
         });
       }
+      
       const product = await Product.findByPk(productId, { transaction: t });
       if (!product) {
         throw new Error(`Product ${productId} not found`);
@@ -310,6 +310,7 @@ exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
       if (product.quantity < quantity) {
         throw new Error(`Insufficient stock for product ${product.name}`);
       }
+      
       const itemTotal = quantity * price;
       totalAmount += itemTotal;
 
@@ -318,7 +319,6 @@ exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
       const CGSTAmount = (product.CGST / 100) * itemTotal;
 
       const netTotal = itemTotal + IGSTAmount + SGSTAmount + CGSTAmount;
-
 
       // Create invoice item
       const invoiceItem = await InvoiceItem.create({
@@ -337,24 +337,75 @@ exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
         locationId: inventory.roomId || inventory.rackId || inventory.freezerId,
         createdBy: req.user.id
       }, { transaction: t });
-      
+
       const invoiceItemWithProduct = await InvoiceItem.findByPk(invoiceItem.id, {
-        include: [
-          {
-            model: Product,
-            as: 'Product' // use your association alias
-          }
-        ],
+        include: [{ model: Product, as: 'Product' }],
         transaction: t
       });
+
+      invoiceItems.push(invoiceItemWithProduct);      
+
+      // =================================================================
+      // 🆕 ADDED: Update OutletProduct according to the invoice items
+      // =================================================================
       
-      invoiceItems.push(invoiceItemWithProduct);      // Reduce inventory
+      // Try to find an existing OutletProduct for this outlet by SKU or Name
+      let outletProduct = null;
+      if (product.sku) {
+        outletProduct = await OutletProduct.findOne({
+          where: { outletId, sku: product.sku },
+          transaction: t
+        });
+      }
+      
+      // Fallback to finding by name if SKU wasn't found or doesn't exist
+      if (!outletProduct) {
+        outletProduct = await OutletProduct.findOne({
+          where: { outletId, name: product.name },
+          transaction: t
+        });
+      }
+
+      if (outletProduct) {
+        // If product exists in outlet, increment quantities
+        outletProduct.quantity += quantity;
+        outletProduct.liveStock += quantity; // Assuming new stock becomes live immediately
+        outletProduct.price = price || outletProduct.price; // Update price if changed
+        await outletProduct.save({ transaction: t });
+      } else {
+        // If product doesn't exist in outlet, create a new OutletProduct record
+        await OutletProduct.create({
+          name: product.name,
+          sku: product.sku,
+          HSN_No: product.HSN_No,
+          description: product.description,
+          categoryName: product.categoryId || 1, // Fallback if categoryName is not directly on Product
+          quantity: quantity,
+          reservedStock: 0,
+          liveStock: quantity,
+          productType: product.productType || 'inventory', // Default to inventory
+          units: product.unit || 'Pc',
+          price: price || product.price,
+          IGST: product.IGST,
+          SGST: product.SGST,
+          CGST: product.CGST,
+          comeFromInventory:inventory.id,
+          costPrice: product.costPrice,
+          thresholdQuantity: product.reorderLevel || 10,
+          outletId: outletId,
+          createdBy: `USER-${req.user.id}`, // Based on your model's comment requirement
+          isActive: true
+        }, { transaction: t });
+      }
+
+      // =================================================================
+
+      // Reduce inventory in store
       inventory.quantity -= quantity;
       await inventory.save({ transaction: t });
 
       // Check threshold after reduction
       if (inventory.quantity <= inventory.reorderLevel) {
-        // Create alert
         console.log(`Low stock alert for product ${productId}`);
       }
     }
@@ -375,15 +426,11 @@ exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
     await invoice.save({ transaction: t });
 
     if (paymentMethod === 'credit' || paymentMethod === 'mixed') {
-      const outlet = await Outlet.findByPk(storeId, { transaction: t });
-
-      if (!outlet) {
-        throw new Error(`Store ${storeId} not found`);
-      }
-
+      // Note: The original code had a bug here using `storeId` to find `outlet`.
+      // I changed it to use `outletId` or the `outlet` object we fetched earlier.
       if (paymentMethod === 'credit') {
-        outlet.currentCredit += creditAmount;
-        outlet.creditLimit -= creditAmount;
+        outlet.currentCredit = parseFloat(outlet.currentCredit || 0) + parseFloat(creditAmount);
+        outlet.creditLimit = parseFloat(outlet.creditLimit || 0) - parseFloat(creditAmount);
         await outlet.save({ transaction: t });
       }
     }
@@ -400,7 +447,6 @@ exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 // Get all invoices
 exports.getAllInvoices = async (req, res) => {
   try {
@@ -423,7 +469,7 @@ exports.getAllInvoices = async (req, res) => {
       where,
       include: [
         { model: Store },
-        { model: Outlet },
+        { model: Outlet, as: "outlet" },
         { model: User, as: 'Admin', attributes: ['id', 'name', 'email'] },
         { model: User, as: 'StoreManager', attributes: ['id', 'name', 'email'] }
       ],
@@ -464,7 +510,7 @@ exports.getAllInvoicesByStoreManager = async (req, res) => {
       where,
       include: [
         { model: Store },
-        { model: Outlet },
+        { model: Outlet, as:'outlet' },
         { model: User, as: 'Admin', attributes: ['id', 'name', 'email'] },
         { model: User, as: 'StoreManager', attributes: ['id', 'name', 'email'] }
       ],
@@ -557,7 +603,7 @@ exports.getAllDistributedInvoicesByAdmin = async (req, res) => {
     }
 
     const offset = (page - 1) * limit;
-
+    // Outlet is associated to Invoice using an alias. You must use the 'as' keyword to specify the alias within your include statement.
     const { count, rows: invoices } = await Invoice.findAndCountAll({
       where,
       distinct: true,
@@ -573,7 +619,10 @@ exports.getAllDistributedInvoicesByAdmin = async (req, res) => {
             }
           ]
         },
-        { model: Outlet },
+        {
+          model: Outlet,
+          as: 'outlet'
+        },
         { model: User, as: 'Admin' },
         { model: User, as: 'StoreManager' },
         {
@@ -814,7 +863,7 @@ exports.updateInvoiceStatus = async (req, res) => {
         await store.save({ transaction: t });
       }
     } else {
-      invoice.status = status === 'paid'?"completed":status;
+      invoice.status = status === 'paid' ? "completed" : status;
     }
 
     await invoice.save({ transaction: t });

@@ -19,6 +19,8 @@ const WayBill = require('./WayBill');
 const Sale = require('./Sale');
 const SaleItem = require('./SaleItem');
 const OutletExpenditure = require('./OutletExpenditure');
+const StockRequest = require('./StockRequest');
+const StockRequestItem = require('./StockRequestItem');
 
 // User associations
 User.hasMany(User, { as: 'CreatedUsers', foreignKey: 'createdBy' });
@@ -143,8 +145,13 @@ OutletProduct.belongsTo(Outlet, {
   as: 'outlet'
 });
 
-InvoiceItem.belongsTo(WayBill, {foreignKey: "batchId"});
-WayBill.hasMany(InvoiceItem, {foreignKey: "batchId"});
+
+// Associations
+StockRequest.hasMany(StockRequestItem, { foreignKey: 'requestId', as: 'items', onDelete: 'CASCADE' });
+StockRequestItem.belongsTo(StockRequest, { foreignKey: 'requestId', as: 'request' });
+
+OutletProduct.hasMany(StockRequestItem, { foreignKey: 'outletProductId', as: 'requestItems' });
+StockRequestItem.belongsTo(OutletProduct, { foreignKey: 'outletProductId', as: 'product' });
 
 // Sale <-> SaleItem
 Sale.hasMany(SaleItem, {
@@ -221,6 +228,9 @@ const syncDatabase = async () => {
   }
 };
 
+// Ensure these associations exist in your models/index.js
+StockRequest.belongsTo(Outlet, { foreignKey: 'outletId', as: 'outlet' });
+
 module.exports = {
   sequelize,
   Store,
@@ -238,6 +248,8 @@ module.exports = {
   Expenditure,
   User,
   Sale,
+  StockRequest,
+  StockRequestItem,
   OutletExpenditure,
   SaleItem,
   WayBill,

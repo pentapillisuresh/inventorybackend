@@ -1252,7 +1252,7 @@ exports.getPerformanceReport = async (req, res) => {
     // Outlet performance
     const outletPerformance = await Invoice.findAll({
       where: { ...where, type: 'outlet_sale' },
-      include: [{ model: Outlet, attributes: ['id', 'name'] }],
+      include: [{ model: Outlet, as: 'outlet',attributes: ['id', 'name'] }],
       attributes: [
         'outletId',
         [sequelize.fn('COUNT', sequelize.col('id')), 'invoiceCount'],
@@ -1659,7 +1659,7 @@ async function buildCustomReport(params) {
     where,
     include: [
       { model: Store, attributes: [] },
-      { model: Outlet, attributes: [] },
+      { model: Outlet, attributes: [],as: 'outlet' },
       {
         model: InvoiceItem,
         include: [{

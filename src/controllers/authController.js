@@ -7,7 +7,7 @@ exports.login = async (req, res) => {
 
     const user = await User.findOne({ where: { email } });
     if (!user || !user.isActive) {
-      return res.status(401).json({ error: 'User Inactive' });
+      return res.status(401).json({ error: 'User Inactiveee' });
     }
 
     const isPasswordValid = await user.comparePassword(password);
