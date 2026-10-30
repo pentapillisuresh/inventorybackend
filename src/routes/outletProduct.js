@@ -16,6 +16,7 @@ router.get('/:id', /* authenticate, */ controller.getProductById);
 // Update
 router.put('/:id', /* authenticate, */ controller.updateProduct);
 router.patch('/:id/stock', /* authenticate, */ controller.updateStock);
+router.patch('/:id/stockTransfer', /* authenticate, */ controller.updateStockTransfer);
 
 // Delete
 router.delete('/:id', /* authenticate, */ controller.deleteProduct);         // soft delete

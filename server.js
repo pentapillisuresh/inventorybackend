@@ -61,6 +61,7 @@ app.use('/api/wayBill', require('./src/routes/waybill'));
 app.use('/api/sales', require('./src/routes/sale'));
 app.use('/api/dashboard', require('./src/routes/dashboards'));
 app.use('/api/stock-requests', require('./src/routes/stockRequest'));
+app.use('/api/raw-material-usages', require('./src/routes/rawMaterialUsageRoutes'));
 
 /* ---------------- Error Handler ---------------- */
 app.use((err, req, res, next) => {

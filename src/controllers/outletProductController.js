@@ -8,8 +8,8 @@ const ProductOutlet = require('../models/OutletProduct');
 exports.createProduct = async (req, res) => {
   try {
     const {
-      name, sku, HSN_No, description, categoryName, quantity,
-      units, price, IGST, SGST, CGST, costPrice,
+      name, sku, HSN_No, description, categoryName, quantity, productType,
+      units, price, IGST, SGST, CGST, costPrice, reservedStock,
       thresholdQuantity, image, outletId, createdBy, isActive
     } = req.body;
 
@@ -27,6 +27,7 @@ exports.createProduct = async (req, res) => {
       description,
       categoryName,
       quantity: quantity ?? 0,
+      reservedStock: quantity ?? 0,
       units,
       price,
       IGST,
@@ -160,7 +161,7 @@ exports.updateProduct = async (req, res) => {
 
     const updatable = [
       'name', 'sku', 'HSN_No', 'description', 'categoryName', 'quantity',
-      'units', 'price', 'IGST', 'SGST', 'CGST', 'costPrice','productType',
+      'units', 'price', 'IGST', 'SGST', 'CGST', 'costPrice', 'productType',
       'thresholdQuantity', 'image', 'outletId', 'isActive'
     ];
 
@@ -273,10 +274,22 @@ exports.updateStock = async (req, res) => {
     }
 
     let newQuantity = product.quantity;
+    let newReservedStockQuantity = product.reservedStock;
+    let newLiveStockQuantity = product.liveStock;
 
-    if (operation === 'set') newQuantity = Number(quantity);
-    else if (operation === 'increment') newQuantity += Number(quantity);
-    else if (operation === 'decrement') newQuantity -= Number(quantity);
+    if (operation === 'set') {
+       newQuantity = Number(quantity); 
+      }
+    else if (operation === 'increment') {
+      
+      newReservedStockQuantity += Number(quantity);
+      newQuantity=Number(newReservedStockQuantity)+ Number(newLiveStockQuantity)
+    }
+
+    else if (operation === 'decrement') {
+      newLiveStockQuantity -= Number(quantity);
+      newQuantity=Number(newReservedStockQuantity)+ Number(newLiveStockQuantity)
+    }
     else {
       return res.status(400).json({
         success: false,
@@ -284,14 +297,58 @@ exports.updateStock = async (req, res) => {
       });
     }
 
-    if (newQuantity < 0) {
+    if (newLiveStockQuantity < 0) {
       return res.status(400).json({
         success: false,
-        message: 'Stock quantity cannot be negative'
+        message: 'Stock live quantity cannot be negative'
       });
     }
 
-    await product.update({ quantity: newQuantity });
+    await product.update({ quantity: newQuantity,liveStock:newLiveStockQuantity,reservedStock:newReservedStockQuantity });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Stock updated successfully',
+      data: product
+    });
+  } catch (error) {
+    console.error('updateStock error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update stock',
+      error: error.message
+    });
+  }
+};
+
+exports.updateStockTransfer = async (req, res) => {
+  try {
+    const { liveStock, reservedStock } = req.body;
+
+    if (liveStock === undefined || isNaN(liveStock)) {
+      return res.status(400).json({
+        success: false,
+        message: 'liveStock quantity is required and must be a number'
+      });
+    }
+
+    if (reservedStock === undefined || isNaN(reservedStock)) {
+      return res.status(400).json({
+        success: false,
+        message: 'reservedStock quantity is required and must be a number'
+      });
+    }
+
+    const product = await ProductOutlet.findByPk(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    await product.update({ liveStock, reservedStock, quantity: Number(liveStock) + Number(reservedStock) });
 
     return res.status(200).json({
       success: true,

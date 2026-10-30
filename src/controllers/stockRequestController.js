@@ -484,7 +484,6 @@ exports.approveRequest = async (req, res) => {
    Approve Request Items (Single, Bulk, or All)
    PATCH /api/stock-requests/:id/approve
 ========================================================= */
-
 exports.approveRequestItems = async (req, res) => {
     const t = await sequelize.transaction();
     try {

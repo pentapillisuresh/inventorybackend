@@ -21,6 +21,7 @@ const SaleItem = require('./SaleItem');
 const OutletExpenditure = require('./OutletExpenditure');
 const StockRequest = require('./StockRequest');
 const StockRequestItem = require('./StockRequestItem');
+const RawMaterialUsage = require('./RawMaterialUsage');
 
 // User associations
 User.hasMany(User, { as: 'CreatedUsers', foreignKey: 'createdBy' });
@@ -218,6 +219,9 @@ OutletExpenditure.belongsTo(Outlet, {
   as: 'createdByOutlet'
 });
 
+RawMaterialUsage.belongsTo(OutletProduct, { foreignKey: 'outletProductId', as: 'rawMaterial' });
+OutletProduct.hasMany(RawMaterialUsage, { foreignKey: 'outletProductId', as: 'usages' });
+
 // Sync database
 const syncDatabase = async () => {
   try {
@@ -253,5 +257,6 @@ module.exports = {
   OutletExpenditure,
   SaleItem,
   WayBill,
+  RawMaterialUsage,
   syncDatabase
 };

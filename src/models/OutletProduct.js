@@ -15,7 +15,7 @@ const OutletProduct = sequelize.define('OutletProduct', {
     type: DataTypes.STRING,
     allowNull: true,
   },
-  HSN_No: { 
+  HSN_No: {
     type: DataTypes.STRING,
     allowNull: true
   },
@@ -23,8 +23,8 @@ const OutletProduct = sequelize.define('OutletProduct', {
     type: DataTypes.TEXT
   },
   categoryName: {
-    type: DataTypes.INTEGER,
-    allowNull: false
+    type: DataTypes.STRING,
+    allowNull: true
   },
   quantity: {
     type: DataTypes.INTEGER,
@@ -81,10 +81,10 @@ const OutletProduct = sequelize.define('OutletProduct', {
     type: DataTypes.INTEGER,
     allowNull: true
   },
-    createdBy: {
+  createdBy: {
     type: DataTypes.STRING,
     allowNull: true,
-    comment:"is this created by user or outlet amd concat with its respective ID ex: 'USER-1 / OUTLET-1' "
+    comment: "is this created by user or outlet amd concat with its respective ID ex: 'USER-1 / OUTLET-1' "
   },
   isActive: {
     type: DataTypes.BOOLEAN,

@@ -1,4 +1,4 @@
-const { Invoice, InvoiceItem, Product, Store, Outlet, User, sequelize, Inventory, OutletProduct } = require('../models');
+const { Invoice, InvoiceItem, Product, Store, Outlet, User, sequelize, Inventory, OutletProduct, Category } = require('../models');
 const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
 
@@ -306,6 +306,11 @@ exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
         throw new Error(`Product ${productId} not found`);
       }
 
+      const category = await Category.findByPk(product.categoryId, { transaction: t });
+      if (!category) {
+        throw new Error(`Category ${product.categoryId} not found`);
+      }
+
       // ❗ Check stock availability
       if (product.quantity < quantity) {
         throw new Error(`Insufficient stock for product ${product.name}`);
@@ -379,10 +384,10 @@ exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
           sku: product.sku,
           HSN_No: product.HSN_No,
           description: product.description,
-          categoryName: product.categoryId || 1, // Fallback if categoryName is not directly on Product
+          categoryName: category.name || '', // Fallback if categoryName is not directly on Product
           quantity: quantity,
-          reservedStock: 0,
-          liveStock: quantity,
+          reservedStock: quantity,
+          liveStock: 0,
           productType: product.productType || 'inventory', // Default to inventory
           units: product.unit || 'Pc',
           price: price || product.price,
@@ -393,7 +398,7 @@ exports.createOutletInvoiceWithItemByAdmin = async (req, res) => {
           costPrice: product.costPrice,
           thresholdQuantity: product.reorderLevel || 10,
           outletId: outletId,
-          createdBy: `USER-${req.user.id}`, // Based on your model's comment requirement
+          createdBy: req.user.id, // Based on your model's comment requirement
           isActive: true
         }, { transaction: t });
       }
