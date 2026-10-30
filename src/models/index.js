@@ -222,6 +222,18 @@ OutletExpenditure.belongsTo(Outlet, {
 RawMaterialUsage.belongsTo(OutletProduct, { foreignKey: 'outletProductId', as: 'rawMaterial' });
 OutletProduct.hasMany(RawMaterialUsage, { foreignKey: 'outletProductId', as: 'usages' });
 
+// ✅ OutletProduct belongs to an Inventory record
+OutletProduct.belongsTo(Inventory, { 
+  foreignKey: 'comeFromInventory', 
+  as: 'sourceInventory' // Unique alias
+});
+
+// ✅ Inventory has many OutletProducts
+Inventory.hasMany(OutletProduct, { 
+  foreignKey: 'comeFromInventory', 
+  as: 'outletProducts' // Unique alias
+});
+
 // Sync database
 const syncDatabase = async () => {
   try {

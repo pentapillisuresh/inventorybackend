@@ -34,10 +34,33 @@ exports.getStoreInventory = async (req, res) => {
           model: Product,
           include: ['Category']
         },
-        { model: Store },
+        { model: Store,as: 'store' },
         { model: Room },
         { model: Rack },
         { model: Freezer }
+      ],
+      order: [['lastUpdated', 'DESC']]
+    });
+
+    res.json(inventory);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getOutletStoreInventory = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+
+    const where = { storeId };
+
+    const inventory = await Inventory.findAll({
+      where,
+      include: [
+        {
+          model: Product,
+        },
+        { model: Store,as: 'Store'},
       ],
       order: [['lastUpdated', 'DESC']]
     });
@@ -195,6 +218,7 @@ exports.createStoreManagerInventory = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 // Move inventory to different location
 exports.moveInventory = async (req, res) => {
   const t = await sequelize.transaction();

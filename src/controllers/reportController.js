@@ -239,7 +239,7 @@ async function generateSalesReport(startDate, endDate, storeId, type) {
     where,
     include: [
       { model: Store },
-      { model: Outlet },
+      { model: Outlet,  as: 'outlet' },
       {
         model: InvoiceItem,
         include: [Product]

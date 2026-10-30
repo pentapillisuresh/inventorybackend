@@ -157,8 +157,16 @@ exports.getAdminDashboardData = async (req, res) => {
 exports.createRequest = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { outletId, requestType = 'refill', notes, items } = req.body;
-        const requestedBy = req.user?.id || req.body.requestedBy; // Assuming auth middleware sets req.user
+        const { 
+            outletId, 
+            storeId, 
+            requestType = 'refill', 
+            notes, 
+            totalAmount = 0,
+            items 
+        } = req.body;
+        
+        const requestedBy = req.user?.id || req.body.requestedBy;
 
         if (!outletId || !items || items.length === 0) {
             await t.rollback();
@@ -167,25 +175,86 @@ exports.createRequest = async (req, res) => {
 
         const requestNumber = await generateRequestNumber(outletId, t);
 
-        // Create Header
+        // 1. Create Request Header
         const request = await StockRequest.create({
             requestNumber,
             outletId,
+            storeId,
             requestType,
             notes,
             requestedBy,
+            totalAmount,
             status: 'pending'
         }, { transaction: t });
 
-        // Create Items
-        const requestItems = items.map(item => ({
-            requestId: request.id,
-            outletProductId: item.outletProductId || null,
-            productName: item.productName,
-            requestedQuantity: item.requestedQuantity,
-            status: 'pending'
-        }));
+        // 2. Process Items & Find/Create outletProductId
+        const requestItems = [];
 
+        for (const item of items) {
+            let outletProductId = null;
+
+            if (item.inventoryId) {
+                // A. Try to find existing OutletProduct
+                let outletProduct = await OutletProduct.findOne({
+                    where: {
+                        outletId: outletId,
+                        comeFromInventory: item.inventoryId
+                    },
+                    transaction: t
+                });
+
+                // B. If not found, create a new OutletProduct
+                if (!outletProduct) {
+                    // Fetch the Store Inventory (with Product details) to copy details
+                    const storeInventory = await Inventory.findByPk(item.inventoryId, {
+                        include: [{ model: Product }],
+                        transaction: t
+                    });
+
+                    if (storeInventory && storeInventory.Product) {
+                        const prod = storeInventory.Product;
+                        
+                        outletProduct = await OutletProduct.create({
+                            outletId,
+                            comeFromInventory: item.inventoryId,
+                            name: prod.name || item.productName,
+                            sku: prod.sku || null,
+                            HSN_No: prod.HSN_No || null,
+                            // Assuming Product has categoryId, defaulting to 1 if null
+                            categoryName: prod.categoryId || 1, 
+                            quantity: 0,          // Starts at 0 since it's a new request
+                            reservedStock: 0,
+                            liveStock: 0,
+                            productType: prod.productType || 'inventory',
+                            units: prod.units || 'Pc',
+                            price: prod.price || 0,
+                            costPrice: prod.costPrice || 0,
+                            IGST: prod.IGST || 0,
+                            SGST: prod.SGST || 0,
+                            CGST: prod.CGST || 0,
+                            thresholdQuantity: prod.reorderLevel || 10,
+                            createdBy: `USER-${requestedBy}`, // Based on your model comment
+                            isActive: true
+                        }, { transaction: t });
+                    }
+                }
+
+                // C. Assign the ID (either found or newly created)
+                if (outletProduct) {
+                    outletProductId = outletProduct.id;
+                }
+            }
+
+            requestItems.push({
+                requestId: request.id,
+                outletProductId: outletProductId, 
+                productName: item.productName,
+                requestedQuantity: item.requestedQuantity,
+                status: 'pending'
+            });
+        }
+
+        // 3. Bulk Create the Items
         const createdItems = await StockRequestItem.bulkCreate(requestItems, { transaction: t });
 
         await t.commit();

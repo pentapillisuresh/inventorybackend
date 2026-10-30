@@ -18,6 +18,11 @@ router.get('/store/:storeId',
   inventoryController.getStoreInventory
 );
 
+router.get('/outlet/store/:storeId',
+  authenticate,
+  inventoryController.getOutletStoreInventory
+);
+
 // Update inventory quantity
 router.put('/:id',
   authenticate,

@@ -149,7 +149,7 @@ exports.getAllOutlets = async (req, res) => {
       where,
       include: [
         {
-          model: Store,
+          model: Store, as: 'Store',
           attributes: ['id', 'name', 'address']
         }
       ],
@@ -188,11 +188,11 @@ exports.getOutletById = async (req, res) => {
     const outlet = await Outlet.findByPk(id, {
       include: [
         {
-          model: Store,
+          model: Store,as: 'Store',
           attributes: ['id', 'name', 'address', 'adminId', 'managerId']
         },
         {
-          model: Invoice,
+          model: Invoice,as: 'invoices',
           limit: 10,
           order: [['invoiceDate', 'DESC']]
         }
@@ -222,7 +222,7 @@ exports.updateOutlet = async (req, res) => {
     const { name, address, contactPerson, phoneNumber, creditLimit, currentCredit, isActive, FSSAI_No, GST_No, CIN_No } = req.body;
 
     const outlet = await Outlet.findByPk(id, {
-      include: [{ model: Store }]
+      include: [{ model: Store, as: 'Store' }]
     });
 
     if (!outlet) {
@@ -284,8 +284,8 @@ exports.deleteOutlet = async (req, res) => {
 
     const outlet = await Outlet.findByPk(id, {
       include: [
-        { model: Store },
-        { model: Invoice }
+        { model: Store , as: 'Store' },
+        { model: Invoice, as: 'invoices' }
       ]
     });
 
@@ -323,7 +323,7 @@ exports.getOutletInvoices = async (req, res) => {
     const offset = (page - 1) * limit;
 
     const outlet = await Outlet.findByPk(id, {
-      include: [{ model: Store }]
+      include: [{ model: Store , as: 'Store' }]
     });
 
     if (!outlet) {
@@ -350,7 +350,7 @@ exports.getOutletInvoices = async (req, res) => {
       where,
       include: [
         {
-          model: Store,
+          model: Store, as: 'Store',
           attributes: ['id', 'name']
         }
       ],
@@ -392,7 +392,7 @@ exports.getOutletStats = async (req, res) => {
     const { year } = req.query;
 
     const outlet = await Outlet.findByPk(id, {
-      include: [{ model: Store }]
+      include: [{ model: Store, as: 'Store' }]
     });
 
     if (!outlet) {
@@ -451,7 +451,7 @@ exports.getOutletStats = async (req, res) => {
     const topProducts = await InvoiceItem.findAll({
       include: [
         {
-          model: Invoice,
+          model: Invoice,as: 'invoices',
           where: { outletId: id },
           attributes: []
         },
@@ -506,7 +506,7 @@ exports.getOutletsByStore = async (req, res) => {
       where,
       include: [
         {
-          model: Store,
+          model: Store, as: 'Store',
           attributes: ['id', 'name']
         }
       ],
@@ -526,7 +526,7 @@ exports.toggleOutletStatus = async (req, res) => {
     const { isActive } = req.body;
 
     const outlet = await Outlet.findByPk(id, {
-      include: [{ model: Store }]
+      include: [{ model: Store, as: 'Store' }]
     });
 
     if (!outlet) {
@@ -561,7 +561,7 @@ exports.bulkUpdateOutlets = async (req, res) => {
     // Get outlets with store info
     const outlets = await Outlet.findAll({
       where: { id: { [Op.in]: outletIds } },
-      include: [{ model: Store }]
+      include: [{ model: Store, as: 'Store' }]
     });
 
     // Filter outlets that user has access to
@@ -589,6 +589,64 @@ exports.bulkUpdateOutlets = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * @desc    Get outlets by phone number (includes store details)
+ * @route   GET /api/outlets/by-phone?phoneNumber=9876543210
+ */
+exports.getOutletsByPhoneNumber = async (req, res) => {
+  try {
+    const { phoneNumber } = req.query;
+console.log("phoneNumber::",phoneNumber)
+    // 1. Validation
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'phoneNumber query parameter is required.'
+      });
+    }
+
+    // 2. Query Database
+    const outlets = await Outlet.findAll({
+      where: {
+        // Use exact match. If you want partial search, use { [Op.like]: `%${phoneNumber}%` }
+        phoneNumber: phoneNumber 
+      },
+      include: [
+        {
+          model: Store,
+          as: 'Store', // Matches the alias in models/index.js
+          attributes: ['id', 'name', 'address', 'email'] // Adjust fields based on your Store model
+        }
+      ],
+      // Optional: Add limit/pagination if a phone number can have many outlets
+      limit: 20 
+    });
+
+    // 3. Handle No Results
+    if (!outlets || outlets.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No outlets found with this phone number.'
+      });
+    }
+
+    // 4. Return Response
+    return res.status(200).json({
+      success: true,
+      count: outlets.length,
+      data: outlets
+    });
+
+  } catch (error) {
+    console.error('getOutletsByPhoneNumber error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch outlets',
+      error: error.message
+    });
   }
 };
 

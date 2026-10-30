@@ -12,9 +12,9 @@ router.post('/', /* authenticate, */ stockRequestController.createRequest);
 router.get('/', /* authenticate, */ stockRequestController.getAllRequests);
 
 // Get a specific request
-router.get('/:id', /* authenticate, */ stockRequestController.getRequestById);
-
 router.get('/admin-dashboard', stockRequestController.getAdminDashboardData);
+
+router.get('/:id', /* authenticate, */ stockRequestController.getRequestById);
 
 router.get('/:id/details', stockRequestController.getRequestDetails);
 

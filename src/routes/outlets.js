@@ -5,7 +5,28 @@ const outletController = require('../controllers/outletController');
 const { authenticate, authorize } = require('../middleware/auth');
 const { checkPermission, checkStoreAccess } = require('../middleware/role');
 
-// Create outlet (Admin or Store Manager with permission)
+/* ========================================================
+   1. STATIC ROUTES (Must go first)
+======================================================== */
+
+// Get outlets by phone number (For login / initial fetch)
+router.get('/by-phone', /* authenticate, */ outletController.getOutletsByPhoneNumber);
+
+// Get outlets by store
+router.get('/store/:storeId',
+  authenticate,
+  checkStoreAccess,
+  outletController.getOutletsByStore
+);
+
+// Bulk update outlets
+router.post('/bulk-update',
+  authenticate,
+  authorize('admin'),
+  outletController.bulkUpdateOutlets
+);
+
+// Create outlet
 router.post('/',
   authenticate,
   authorize('admin', 'store_manager'),
@@ -13,11 +34,15 @@ router.post('/',
   outletController.createOutlet
 );
 
-// Get all outlets (Filtered by role)
+// Get all outlets
 router.get('/',
   authenticate,
   outletController.getAllOutlets
 );
+
+/* ========================================================
+   2. PARAMETERIZED ROUTES (:id) (Must go last)
+======================================================== */
 
 // Get outlet by ID
 router.get('/:id',
@@ -32,7 +57,7 @@ router.put('/:id',
   outletController.updateOutlet
 );
 
-// Delete outlet (Admin only)
+// Delete outlet
 router.delete('/:id',
   authenticate,
   authorize('admin'),
@@ -51,25 +76,11 @@ router.get('/:id/stats',
   outletController.getOutletStats
 );
 
-// Get outlets by store
-router.get('/store/:storeId',
-  authenticate,
-  checkStoreAccess,
-  outletController.getOutletsByStore
-);
-
 // Activate/deactivate outlet
 router.patch('/:id/status',
   authenticate,
   authorize('admin'),
   outletController.toggleOutletStatus
-);
-
-// Bulk update outlets
-router.post('/bulk-update',
-  authenticate,
-  authorize('admin'),
-  outletController.bulkUpdateOutlets
 );
 
 module.exports = router;
