@@ -13,7 +13,7 @@ const OutletExpenditure = sequelize.define('OutletExpenditure', {
   },
   ledgerType: {
     type: DataTypes.ENUM('credit', 'debit'),
-    defaultValue: 'credit'
+    defaultValue: 'debit'
   },
   category: {
     type: DataTypes.STRING,

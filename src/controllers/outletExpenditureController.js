@@ -8,13 +8,14 @@ const moment = require('moment');
 // Create outletExpenditure (Admin office expense)
 exports.createOutletExpenditure = async (req, res) => {
   try {
-    const { category, description, amount, date } = req.body;
+    const { category, description, amount, date,ledgerType } = req.body;
 
     const outletExpenditure = await OutletExpenditure.create({
-      adminId: req.user.id,
+      outletId: req.user.id,
       category: category.trim(),
       description: description.trim(),
       amount: parseFloat(amount),
+      ledgerType: ledgerType,
       date: date ? new Date(date) : new Date(),
       receiptImage: req.file ? req.file.path : null,
       verified: false,// Initially not verified
@@ -72,20 +73,12 @@ exports.getAllOutletExpenditures = async (req, res) => {
     }
 
     // Role-based filtering
-    if (req.user.role === 'admin') {
-      where.adminId = req.user.id;
-    }
+      where.outletId = req.user.id;
+
     // Superadmin can see all, store manager can't see outletExpenditures
 
     const { count, rows: outletExpenditures } = await OutletExpenditure.findAndCountAll({
       where,
-      include: [
-        {
-          model: User,
-          as: 'Admin',
-          attributes: ['id', 'name', 'email']
-        }
-      ],
       order: [['date', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
@@ -153,17 +146,10 @@ exports.getByUser = async (req, res) => {
     }
 
     // Role-based filtering
-      where.adminId = req.user.id;
+      where.outletId = req.user.id;
 
     const { count, rows: outletExpenditures } = await OutletExpenditure.findAndCountAll({
       where,
-      include: [
-        {
-          model: User,
-          as: 'Admin',
-          attributes: ['id', 'name', 'email']
-        }
-      ],
       order: [['date', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
@@ -203,22 +189,14 @@ exports.getOutletExpenditureById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const outletExpenditure = await OutletExpenditure.findByPk(id, {
-      include: [
-        {
-          model: User,
-          as: 'Admin',
-          attributes: ['id', 'name', 'email']
-        }
-      ]
-    });
+    const outletExpenditure = await OutletExpenditure.findByPk(id);
 
     if (!outletExpenditure) {
       return res.status(404).json({ error: 'OutletExpenditure not found' });
     }
 
     // Check access
-    if (req.user.role === 'admin' && outletExpenditure.adminId !== req.user.id) {
+    if ( outletExpenditure.outletId !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -230,15 +208,12 @@ exports.getOutletExpenditureById = async (req, res) => {
 
 exports.getIncomesById = async (req, res) => {
   try {
-    const { adminId } = req.params;
+    const { outletId } = req.params;
 
     const totalIncome = await OutletExpenditure.sum('amount', {
       where: {
-        adminId,
+        outletId,
         ledgerType: 'credit', // Important: only income
-        category: {
-          [Op.in]: ["subscription", "renew"]
-        }
       }
     });
 
@@ -260,7 +235,7 @@ exports.getIncomesById = async (req, res) => {
 exports.updateOutletExpenditure = async (req, res) => {
   try {
     const { id } = req.params;
-    const { category, description, amount, date } = req.body;
+    const { category, description, amount, date,ledgerType } = req.body;
 
     const outletExpenditure = await OutletExpenditure.findByPk(id);
 
@@ -269,7 +244,7 @@ exports.updateOutletExpenditure = async (req, res) => {
     }
 
     // Only admin who created it can update
-    if (outletExpenditure.adminId !== req.user.id) {
+    if (outletExpenditure.outletId !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -285,6 +260,7 @@ exports.updateOutletExpenditure = async (req, res) => {
     if (description) updates.description = description;
     if (amount) updates.amount = parseFloat(amount);
     if (date) updates.date = new Date(date);
+    if (ledgerType) updates.ledgerType = ledgerType;
     if (req.file) updates.receiptImage = req.file.path;
 
     await outletExpenditure.update(updates);
@@ -376,9 +352,7 @@ exports.getDashboardSummary = async (req, res) => {
 
     // Build where clause based on user role
     let where = {};
-    if (req.user.role === 'admin') {
-      where.adminId = req.user.id;
-    }
+      where.outletId = req.user.id;
 
     // Current month stats
     const currentMonthWhere = { 
@@ -469,19 +443,10 @@ exports.exportOutletExpendituresToExcel = async (req, res) => {
     }
 
     // Role-based filtering
-    if (req.user.role === 'admin') {
-      where.adminId = req.user.id;
-    }
+      where.outletId = req.user.id;
 
     const outletExpenditures = await OutletExpenditure.findAll({
       where,
-      include: [
-        {
-          model: User,
-          as: 'Admin',
-          attributes: ['name', 'email']
-        }
-      ],
       order: [['date', 'DESC']]
     });
 

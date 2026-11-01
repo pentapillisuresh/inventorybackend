@@ -38,11 +38,6 @@ router.get('/:id',
   outletExpenditureController.getOutletExpenditureById
 );
 
-router.get('/incomes/:outletId',
-  authenticate,
-  outletExpenditureController.getIncomesById
-);
-
 // Update expenditure (Admin only)
 router.put('/:id',
   authenticate,
@@ -60,7 +55,7 @@ router.delete('/:id',
 // Verify expenditure (SuperAdmin only)
 router.patch('/:id/verify',
   authenticate,
-  outletExpenditureController.verifyExpenditure
+  outletExpenditureController.verifyOutletExpenditure 
 );
 
 // Get expenditure summary for dashboard
