@@ -356,7 +356,7 @@ exports.getStoreById = async (req, res) => {
           model: Product,
           include: ['Category']
         },
-        { model: Store },
+        { model: Store,as: 'Store' },
         { model: Room },
         { model: Rack },
         { model: Freezer }
@@ -493,7 +493,7 @@ exports.getStoreByManagerId = async (req, res) => {
           model: Product,
           include: ['Category']
         },
-        { model: Store },
+        { model: Store,as: 'Store' },
         { model: Room },
         { model: Rack },
         { model: Freezer }

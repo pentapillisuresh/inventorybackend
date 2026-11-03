@@ -34,7 +34,7 @@ exports.getStoreInventory = async (req, res) => {
           model: Product,
           include: ['Category']
         },
-        { model: Store,as: 'store' },
+        { model: Store,as: 'Store' },
         { model: Room },
         { model: Rack },
         { model: Freezer }
@@ -313,7 +313,7 @@ exports.getLowStockAlerts = async (req, res) => {
           model: Product,
           include: ['Category']
         },
-        { model: Store },
+        { model: Store,as: 'Store' },
         { model: Room },
         { model: Rack },
         { model: Freezer }
@@ -422,7 +422,7 @@ exports.getAllInventory = async (req, res) => {
           model: Product,
           include: ['Category']
         },
-        { model: Store },
+        { model: Store,as: 'Store' },
         { model: Room },
         { model: Rack },
         { model: Freezer }
@@ -588,7 +588,7 @@ exports.getOverallSummary = async (req, res) => {
     const storeBreakdown = await Inventory.findAll({
       where,
       include: [
-        { model: Store, attributes: [] },
+        { model: Store,as: 'Store', attributes: [] },
         { model: Product, attributes: [] }
       ],
       attributes: [
@@ -636,7 +636,7 @@ exports.getInventoryTransactions = async (req, res) => {
 
     // Check if inventory exists and user has access
     const inventory = await Inventory.findByPk(id, {
-      include: [{ model: Store }]
+      include: [{ model: Store,as: 'Store' }]
     });
 
     if (!inventory) {
@@ -740,7 +740,7 @@ exports.searchInventory = async (req, res) => {
           model: Product,
           include: ['Category']
         },
-        { model: Store },
+        { model: Store,as: 'Store' },
         { model: Room },
         { model: Rack },
         { model: Freezer }

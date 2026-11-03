@@ -423,7 +423,7 @@ exports.getProductsUnified = async (req, res) => {
 
             include: ["Category"]
           },
-          { model: Store },
+          { model: Store,as: 'Store' },
           { model: Room },
           { model: Rack },
           { model: Freezer }

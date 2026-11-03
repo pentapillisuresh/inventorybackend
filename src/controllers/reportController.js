@@ -203,7 +203,7 @@ async function generateInventoryReport(startDate, endDate, storeId, categoryId, 
         where: productWhere,
         include: [Category]
       },
-      { model: Store },
+      { model: Store,as: 'Store' },
       { model: Room },
       { model: Rack },
       { model: Freezer }
@@ -475,7 +475,7 @@ async function getAdminStats(adminId) {
           model: Product,
           include: ['Category']
         },
-        { model: Store },
+        { model: Store,as: 'Store' },
       ],
       order: [['quantity', 'ASC']]
     })
@@ -715,7 +715,7 @@ exports.getLowStockReport = async (req, res) => {
           where: categoryId ? { categoryId } : {},
           include: [Category]
         },
-        { model: Store },
+        { model: Store,as: 'Store' },
         { model: Room },
         { model: Rack },
         { model: Freezer }
@@ -801,7 +801,7 @@ exports.getExpiryReport = async (req, res) => {
           model: Product,
           include: [Category]
         },
-        { model: Store }
+        { model: Store,as: 'Store' }
       ],
       order: [['expiryDate', 'ASC']]
     });
